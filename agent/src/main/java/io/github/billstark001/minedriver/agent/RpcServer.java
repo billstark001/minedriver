@@ -88,7 +88,10 @@ final class RpcServer implements AutoCloseable {
           || !"2.0".equals(request.get("jsonrpc").getAsString())
           || !string(request, "method")
           || (request.has("id")
-              && !(request.get("id").isJsonNull() || request.get("id").isJsonPrimitive()))) {
+              && !(request.get("id").isJsonNull()
+                  || (request.get("id").isJsonPrimitive()
+                      && (request.getAsJsonPrimitive("id").isNumber()
+                          || request.getAsJsonPrimitive("id").isString()))))) {
         send(
             exchange,
             200,

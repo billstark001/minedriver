@@ -1,0 +1,22 @@
+plugins {
+    id 'net.neoforged.moddev' version '2.0.147'
+    id 'io.github.billstark001.minedriver'
+}
+java { toolchain.languageVersion = JavaLanguageVersion.of(25) }
+neoForge {
+    version = providers.gradleProperty('neoVersion').getOrElse('26.3.0.48-beta')
+    runs {
+        client { client() }
+    }
+}
+mineDriver {
+    plan.set(layout.projectDirectory.file(providers.gradleProperty('plan').getOrElse('../../examples/plans/title-smoke.json')))
+    timeoutMillis.set(300000L)
+    allowStartupWarnings.set(true)
+    extensionClasses.add('example.ScreenExtension')
+    if (providers.gradleProperty('probe').getOrElse('title') == 'fixture') {
+        scenarios.add('example.FixtureAssertions')
+    }
+}
+sourceSets.minedriver.java.srcDir('../../examples/scenarios')
+// The integration target contains no @Mod class or tool-mod metadata.

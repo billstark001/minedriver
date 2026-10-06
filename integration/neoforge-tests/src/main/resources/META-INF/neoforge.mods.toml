@@ -1,0 +1,7 @@
+modLoader="javafml"
+loaderVersion="[1,)"
+license="MIT"
+[[mods]]
+modId="minedriver_fixture"
+version="1.0"
+displayName="MineDriver native framework fixture"

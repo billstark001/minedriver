@@ -1,0 +1,8 @@
+{
+  "schemaVersion": 1,
+  "id": "minedriver_fixture",
+  "version": "1.0.0",
+  "name": "MineDriver native framework fixture",
+  "environment": "*",
+  "entrypoints": {"fabric-gametest": ["example.NativeFixtureTest"]}
+}

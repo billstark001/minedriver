@@ -51,9 +51,9 @@ final class SettingsScreens {
       Object factory =
           ((Optional<?>)
                   Reflect.call(
-                      container,
-                      "getCustomExtension",
-                      game.type("net.neoforged.neoforge.client.gui.IConfigScreenFactory")))
+                      game.type("net.neoforged.neoforge.client.gui.IConfigScreenFactory"),
+                      "getForMod",
+                      Reflect.call(container, "getModInfo")))
               .orElseThrow(
                   () ->
                       new DriverException(

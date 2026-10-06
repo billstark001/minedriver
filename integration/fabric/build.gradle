@@ -1,0 +1,26 @@
+plugins {
+    id 'net.fabricmc.fabric-loom' version '1.17.11'
+    id 'io.github.billstark001.minedriver'
+}
+repositories { mavenCentral() }
+java { toolchain.languageVersion = JavaLanguageVersion.of(25) }
+dependencies {
+    minecraft 'com.mojang:minecraft:26.3'
+    implementation 'net.fabricmc:fabric-loader:0.19.5'
+    implementation 'net.fabricmc.fabric-api:fabric-api:0.161.0+26.3'
+}
+fabricApi.configureTests {
+    createSourceSet = true
+    modId = 'minedriver_fixture'
+    enableClientGameTests = false
+    enableGameTests = true
+}
+loom.runs.gameTest {
+    systemProperties.put('fabric-api.gametest.report-file', layout.buildDirectory.file('native-gametest.xml').get().asFile.absolutePath)
+}
+mineDriver {
+    plan.set(layout.projectDirectory.file('../../examples/plans/title-smoke.json'))
+    frameworkTasks.add('runGameTest')
+    frameworkReports.from(layout.buildDirectory.file('native-gametest.xml'))
+}
+// Metadata below belongs only to Fabric's test source set, not the MineDriver agent/plugin.

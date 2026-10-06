@@ -1,0 +1,5 @@
+pluginManagement {
+    includeBuild('../..')
+    repositories { maven { url = 'https://maven.fabricmc.net/' }; gradlePluginPortal(); mavenCentral() }
+}
+rootProject.name = 'MineDriver-Fabric-Framework-Integration'

@@ -40,11 +40,12 @@ final class Profiler implements AutoCloseable {
     if (started == 0) throw new DriverException("NO_PROFILE", "No profile is running");
     var result = new LinkedHashMap<String, Object>();
     try {
-      var samples = FrameClock.after(firstFrame);
+      long lastFrame = FrameClock.count();
+      var samples = FrameClock.after(firstFrame, lastFrame);
       result.put("durationMillis", (System.nanoTime() - started) / 1_000_000.0);
-      result.put("observedFrames", FrameClock.count() - firstFrame);
+      result.put("observedFrames", lastFrame - firstFrame);
       result.put("retainedFrames", samples.size());
-      result.put("droppedFrames", Math.max(0, FrameClock.count() - firstFrame - samples.size()));
+      result.put("droppedFrames", Math.max(0, lastFrame - firstFrame - samples.size()));
       result.put(
           "frameIntervalMillis",
           stats(

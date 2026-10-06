@@ -1,0 +1,24 @@
+plugins {
+    id 'net.neoforged.moddev' version '2.0.147'
+    id 'io.github.billstark001.minedriver'
+}
+java { toolchain.languageVersion = JavaLanguageVersion.of(25) }
+repositories { mavenCentral() }
+neoForge {
+    version = '26.2.0.88'
+    mods { minedriver_fixture { sourceSet sourceSets.main } }
+    unitTest {
+        enable()
+        testedMod = mods.minedriver_fixture
+    }
+}
+dependencies {
+    testImplementation 'org.junit.jupiter:junit-jupiter:5.12.2'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+tasks.named('test') { useJUnitPlatform() }
+mineDriver {
+    frameworkTasks.add('test')
+    frameworkReports.from(layout.buildDirectory.file('test-results/test/TEST-example.NativeRegistryTest.xml'))
+}
+// The metadata is a native test subject, never shipped in MineDriver artifacts.

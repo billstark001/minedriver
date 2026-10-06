@@ -39,3 +39,6 @@ publishing.publications.named('mavenJava') {
     setArtifacts([tasks.named('shadowJar'), tasks.named('sourcesJar'), tasks.named('javadocJar')])
     pom.withXml { asNode().remove(asNode().dependencies) }
 }
+// This publication is a standalone agent, not the thin Java component's dependency graph.
+// Maven POM consumers (including Gradle) resolve the shaded artifact with no transitive deps.
+tasks.withType(org.gradle.api.publish.tasks.GenerateModuleMetadata).configureEach { enabled = false }

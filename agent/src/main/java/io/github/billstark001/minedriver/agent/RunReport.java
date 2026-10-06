@@ -17,6 +17,7 @@ final class RunReport {
   private final String started = Instant.now().toString();
   private final List<Map<String, Object>> steps = new ArrayList<>();
   private boolean complete;
+  private long omittedSteps;
 
   RunReport(AgentConfig config) {
     this.config = config;
@@ -24,6 +25,11 @@ final class RunReport {
 
   synchronized void step(
       String command, String channel, long nanos, Object result, Throwable failure) {
+    if (complete) return;
+    if (steps.size() >= 8192) {
+      omittedSteps++;
+      return;
+    }
     var item = new LinkedHashMap<String, Object>();
     item.put("command", command);
     item.put("channel", channel);
@@ -49,6 +55,7 @@ final class RunReport {
     result.put("durationSeconds", seconds);
     result.put("environment", environment);
     result.put("steps", List.copyOf(steps));
+    result.put("omittedSteps", omittedSteps);
     String trace = "";
     if (failure != null) {
       var buffer = new StringWriter();

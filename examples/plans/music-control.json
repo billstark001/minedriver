@@ -1,0 +1,29 @@
+{
+  "steps": [
+    {"command":"ui.settings","parameters":{"modId":"music_control"}},
+    {"command":"ui.tree"},
+    {"command":"screenshot.capture","parameters":{"name":"settings-en"}},
+    {"command":"input.key","parameters":{"key":"ESCAPE"}},
+    {"command":"resources.language","parameters":{"code":"zh_cn"}},
+    {"command":"ui.settings","parameters":{"modId":"music_control"}},
+    {"command":"screenshot.capture","parameters":{"name":"settings-zh-cn"}},
+    {"command":"input.key","parameters":{"key":"ESCAPE"}},
+    {"command":"resources.language","parameters":{"code":"zh_tw"}},
+    {"command":"ui.settings","parameters":{"modId":"music_control"}},
+    {"command":"screenshot.capture","parameters":{"name":"settings-zh-tw"}},
+    {"command":"input.key","parameters":{"key":"ESCAPE"}},
+    {"command":"resources.language","parameters":{"code":"ja_jp"}},
+    {"command":"ui.settings","parameters":{"modId":"music_control"}},
+    {"command":"screenshot.capture","parameters":{"name":"settings-ja"}},
+    {"command":"input.key","parameters":{"key":"ESCAPE"}},
+    {"command":"resources.language","parameters":{"code":"en_us"}},
+    {"command":"world.create","parameters":{"name":"MineDriver fixture","flat":true,"seed":"1234","timeoutMillis":150000}},
+    {"command":"world.fixture","parameters":{"position":{"x":0.5,"y":6,"z":0.5,"yaw":90,"pitch":25},"blocks":[{"x":1,"y":5,"z":0,"state":"minecraft:gold_block"}],"inventory":[{"slot":0,"item":"minecraft:stone","count":16}],"commands":["weather clear","time set day"]}},
+    {"command":"wait.state","parameters":{"path":"inWorld","equals":true}},
+    {"command":"profile.start","parameters":{"jfr":true}},
+    {"command":"render.await","parameters":{"frames":120}},
+    {"command":"screenshot.capture","parameters":{"name":"fixture"}},
+    {"command":"profile.stop"},
+    {"command":"world.disconnect"}
+  ]
+}

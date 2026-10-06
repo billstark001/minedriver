@@ -42,7 +42,10 @@ public final class FrameClock {
   public record Sample(long sequence, long startedNanos, long intervalNanos, long workNanos) {}
 
   public static List<Sample> after(long first) {
-    long last = COUNT.get();
+    return after(first, COUNT.get());
+  }
+
+  public static List<Sample> after(long first, long last) {
     var result = new ArrayList<Sample>();
     for (long sequence = Math.max(first + 1, last - CAPACITY + 1); sequence <= last; sequence++) {
       int index = (int) (sequence % CAPACITY);

@@ -24,6 +24,7 @@ final class MinecraftMedia {
     String name = Parameters.string(parameters, "name", "capture-" + System.nanoTime());
     Path file = Paths.child(game.config.output().resolve("screenshots"), name + ".png");
     Files.createDirectories(file.getParent());
+    Files.deleteIfExists(file); // A failed callback must never validate an older capture.
     var completed = new CompletableFuture<Object>();
     game.client(
         () -> {
@@ -136,18 +137,32 @@ final class MinecraftMedia {
 
   Object inputText(Map<String, Object> parameters) {
     Object window = Reflect.call(game.minecraft, "getWindow");
-    Reflect.call(
-        Reflect.field(game.minecraft, "keyboardHandler"),
-        "textInput",
-        Reflect.call(window, "handle"),
-        Parameters.string(parameters, "value", null));
+    Object keyboard = Reflect.field(game.minecraft, "keyboardHandler");
+    String value = Parameters.string(parameters, "value", null);
+    if (!Reflect.hasMethod(keyboard, "textInput", 2)) {
+      Class<?> eventType = game.type("net.minecraft.client.input.CharacterEvent");
+      value
+          .codePoints()
+          .forEach(
+              codepoint ->
+                  Reflect.callback(
+                      keyboard,
+                      "charTyped",
+                      new Class<?>[] {long.class, eventType},
+                      Reflect.call(window, "handle"),
+                      Reflect.create(eventType, codepoint)));
+      return Map.of("channel", "input");
+    }
+    Reflect.call(keyboard, "textInput", Reflect.call(window, "handle"), value);
     return Map.of("channel", "input");
   }
 
   private void keyEvent(Object event, int action) {
-    Reflect.call(
-        Reflect.field(game.minecraft, "keyboardHandler"),
+    Object keyboard = Reflect.field(game.minecraft, "keyboardHandler");
+    Reflect.callback(
+        keyboard,
         "keyPress",
+        new Class<?>[] {long.class, int.class, event.getClass()},
         Reflect.call(Reflect.call(game.minecraft, "getWindow"), "handle"),
         action,
         event);

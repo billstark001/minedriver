@@ -90,7 +90,9 @@ final class GameRuntime {
     return execute(server, action, timeout);
   }
 
-  private static <T> T execute(Object executor, Callable<T> action, Duration timeout) {
+  static <T> T execute(Object executor, Callable<T> action, Duration timeout) {
+    if (timeout.isNegative() || timeout.isZero())
+      throw Parameters.invalid("Timeout must be positive");
     if (Boolean.TRUE.equals(Reflect.call(executor, "isSameThread"))) {
       try {
         return action.call();

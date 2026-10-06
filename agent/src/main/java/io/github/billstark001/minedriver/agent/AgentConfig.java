@@ -26,7 +26,7 @@ record AgentConfig(
     JsonObject plan) {
   static AgentConfig read(Path file) throws IOException {
     JsonObject json = Json.read(file).getAsJsonObject();
-    if (!json.has("protocol") || json.get("protocol").getAsInt() != 1)
+    if (number(json, "protocol", -1) != 1)
       throw new IllegalArgumentException("Expected MineDriver configuration protocol 1");
     String mode = text(json, "mode", "check");
     if (!List.of("check", "interactive", "framework").contains(mode))
@@ -59,20 +59,40 @@ record AgentConfig(
   }
 
   private static String text(JsonObject json, String key, String fallback) {
-    return json.has(key) && !json.get(key).isJsonNull() ? json.get(key).getAsString() : fallback;
+    if (!json.has(key) || json.get(key).isJsonNull()) return fallback;
+    if (!json.get(key).isJsonPrimitive() || !json.getAsJsonPrimitive(key).isString())
+      throw new IllegalArgumentException(key + " must be a string");
+    return json.get(key).getAsString();
   }
 
   private static long number(JsonObject json, String key, long fallback) {
-    return json.has(key) ? json.get(key).getAsLong() : fallback;
+    if (!json.has(key)) return fallback;
+    if (!json.get(key).isJsonPrimitive() || !json.getAsJsonPrimitive(key).isNumber())
+      throw new IllegalArgumentException(key + " must be an integer");
+    try {
+      return json.get(key).getAsBigDecimal().longValueExact();
+    } catch (ArithmeticException error) {
+      throw new IllegalArgumentException(key + " must be an integer in long range", error);
+    }
   }
 
   private static boolean flag(JsonObject json, String key) {
-    return json.has(key) && json.get(key).getAsBoolean();
+    if (!json.has(key)) return false;
+    if (!json.get(key).isJsonPrimitive() || !json.getAsJsonPrimitive(key).isBoolean())
+      throw new IllegalArgumentException(key + " must be boolean");
+    return json.get(key).getAsBoolean();
   }
 
   private static List<String> strings(JsonObject json, String key) {
     var result = new ArrayList<String>();
-    if (json.has(key)) json.getAsJsonArray(key).forEach(item -> result.add(item.getAsString()));
+    if (json.has(key))
+      json.getAsJsonArray(key)
+          .forEach(
+              item -> {
+                if (!item.isJsonPrimitive() || !item.getAsJsonPrimitive().isString())
+                  throw new IllegalArgumentException(key + " must contain strings");
+                result.add(item.getAsString());
+              });
     return List.copyOf(result);
   }
 }

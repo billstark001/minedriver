@@ -1,0 +1,18 @@
+{
+  "steps": [
+    {"command":"ui.settings","parameters":{"modId":"neoforge"}},
+    {"command":"ui.tree"},
+    {"command":"screenshot.capture","parameters":{"name":"neoforge-settings"}},
+    {"command":"input.key","parameters":{"key":"ESCAPE"}},
+    {"command":"custom.openScreen"},
+    {"command":"assert.state","parameters":{"path":"screenTitle","equals":"MineDriver extension"}},
+    {"command":"custom.assertNoWorld"},
+    {"command":"assert.widget","parameters":{"selector":{"stableId":"example.increment"}}},
+    {"command":"ui.activate","parameters":{"selector":{"stableId":"example.increment"}}},
+    {"command":"custom.assertCount","parameters":{"count":1}},
+    {"command":"input.click","parameters":{"selector":{"stableId":"example.increment"}}},
+    {"command":"custom.assertCount","parameters":{"count":2}},
+    {"command":"screenshot.capture","parameters":{"name":"extension-screen"}},
+    {"command":"ui.title"}
+  ]
+}

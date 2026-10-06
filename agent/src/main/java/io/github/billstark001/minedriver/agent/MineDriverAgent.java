@@ -59,6 +59,7 @@ public final class MineDriverAgent {
         throw failure;
       }
       var commands = new CommandRegistry();
+      commands.report(report);
       var state = new java.util.concurrent.atomic.AtomicReference<String>("STARTING");
       commands.register(
           "agent.status",
@@ -129,11 +130,17 @@ public final class MineDriverAgent {
                               .toNanos();
                   Object minecraft = null;
                   while (minecraft == null) {
-                    for (Class<?> type : instrumentation.getAllLoadedClasses())
-                      if (type.getName().equals("net.minecraft.client.Minecraft")) {
-                        minecraft = Reflect.call(type, "getInstance");
-                        break;
-                      }
+                    if (frames.failure() != null)
+                      throw new DriverException(
+                          "UNSUPPORTED_API", "Frame hook failed: " + frames.failure());
+                    // A completed frame proves Minecraft's class and instance initialization
+                    // finished on the game thread; never initialize its class from this worker.
+                    if (io.github.billstark001.minedriver.hooks.FrameClock.count() > 0)
+                      for (Class<?> type : instrumentation.getAllLoadedClasses())
+                        if (type.getName().equals("net.minecraft.client.Minecraft")) {
+                          minecraft = Reflect.call(type, "getInstance");
+                          break;
+                        }
                     if (System.nanoTime() >= deadline)
                       throw new DriverException(
                           "STARTUP_TIMEOUT", "Minecraft instance did not become available");
@@ -149,6 +156,7 @@ public final class MineDriverAgent {
                       while (!session.isClosing()) {
                         GameRuntime.pause();
                       }
+                    session.requireSuccessfulScenario();
                   }
                 } catch (Throwable error) {
                   failure = error;

@@ -1,0 +1,9 @@
+MineDriver includes relocated copies of ASM 9.8 (BSD-3-Clause) and Gson 2.13.2
+(Apache-2.0) in its standalone agent. Gson is also a protocol/CLI dependency.
+Their license texts accompany the distribution under META-INF/minedriver/licenses.
+
+ASM: Copyright (c) 2000-2011 INRIA, France Telecom.
+Gson: Copyright 2008 Google Inc.
+
+MineDriver's own source is licensed under the root MIT LICENSE.
+The Gradle wrapper and generated launcher scripts retain their Apache-2.0 notices.

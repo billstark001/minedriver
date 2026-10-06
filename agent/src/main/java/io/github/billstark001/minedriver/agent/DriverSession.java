@@ -69,7 +69,11 @@ final class DriverSession implements Driver, AutoCloseable {
                 description,
                 readOnly,
                 "extension",
-                parameters -> handler.handle(context, parameters));
+                parameters -> {
+                  Object result = handler.handle(context, parameters);
+                  JsonValues.validate(result);
+                  return result;
+                });
           }
 
           @Override
@@ -82,6 +86,30 @@ final class DriverSession implements Driver, AutoCloseable {
   }
 
   private void builtins() {
+    register(
+        "network.inspect",
+        "Inspect play connection and native packet rate counters",
+        true,
+        "read",
+        p -> game.client(() -> MinecraftNetwork.inspect(game), timeout));
+    register(
+        "network.command",
+        "Send a normal client command packet (assert the server outcome separately)",
+        false,
+        "input",
+        p -> game.client(() -> MinecraftNetwork.command(game, p), timeout));
+    register(
+        "world.connect",
+        "Connect through the native multiplayer screen to an explicit server address",
+        false,
+        "network",
+        p -> MinecraftNetwork.connect(game, p, duration(p)));
+    register(
+        "world.snapshot",
+        "Read authoritative integrated-server blocks and player inventory",
+        true,
+        "read",
+        p -> game.world.snapshot(p, timeout));
     register(
         "session.inspect",
         "Inspect game, loader, screen, player and render state",
@@ -119,6 +147,8 @@ final class DriverSession implements Driver, AutoCloseable {
         false,
         "lifecycle",
         p -> {
+          if (executing.get())
+            throw new DriverException("SCENARIO_BUSY", "Wait for the scenario before closing");
           closing = true;
           return true;
         });
@@ -247,13 +277,13 @@ final class DriverSession implements Driver, AutoCloseable {
     register(
         "profile.start",
         "Begin frame/GC sampling and optional bounded JFR recording",
-        true,
+        false,
         "profile",
         profiler::start);
     register(
         "profile.stop",
         "Finish frame/GC/server timing and JFR recording",
-        true,
+        false,
         "profile",
         p -> profiler.stop(config.output(), p, game));
     register(
@@ -305,7 +335,14 @@ final class DriverSession implements Driver, AutoCloseable {
         "Inspect asynchronous scenario execution",
         true,
         "read",
-        p -> Map.of("status", scenarioStatus, "error", scenarioError == null ? "" : scenarioError));
+        p ->
+            Map.of(
+                "status",
+                executing.get() ? "RUNNING" : scenarioStatus,
+                "running",
+                executing.get(),
+                "error",
+                scenarioError == null ? "" : scenarioError));
     register(
         "scenario.run",
         "Start a configured Java scenario or a supplied JSON plan",
@@ -314,6 +351,7 @@ final class DriverSession implements Driver, AutoCloseable {
         p -> {
           if (!executing.compareAndSet(false, true))
             throw new DriverException("SCENARIO_BUSY", "A scenario is already running");
+          scenarioStatus = "RUNNING";
           Thread worker =
               new Thread(
                   () -> {
@@ -448,21 +486,22 @@ final class DriverSession implements Driver, AutoCloseable {
     return closing;
   }
 
+  void requireSuccessfulScenario() {
+    if ("FAIL".equals(scenarioStatus)) throw new DriverException("SCENARIO_FAILED", scenarioError);
+  }
+
   @Override
   public Object call(String command, Map<String, ?> parameters) {
     if (isGameThread())
       throw new DriverException(
           "BAD_THREAD",
           "Issue commands from a scenario/RPC worker, use onClient only for short actions");
-    long start = System.nanoTime();
     try {
       Map<String, Object> p = new java.util.LinkedHashMap<>();
       parameters.forEach(p::put);
       Object result = registry.invoke(command, p);
-      report.step(command, registry.channel(command), System.nanoTime() - start, result, null);
       return result;
     } catch (Throwable failure) {
-      report.step(command, registry.channel(command), System.nanoTime() - start, null, failure);
       throw Reflect.propagate(failure);
     }
   }

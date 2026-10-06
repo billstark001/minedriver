@@ -1,0 +1,24 @@
+// Run from MineDriver after :gradle-plugin:jar. Does not modify the target build scripts.
+initscript {
+    def mineDriverRoot = new File(System.getProperty('minedriver.root', 'D:/Programs/minedriver'))
+    dependencies {
+        classpath files(new File(mineDriverRoot, 'gradle-plugin/build/libs/minedriver-gradle-plugin-0.1.0-SNAPSHOT.jar'))
+        classpath files(new File(mineDriverRoot, 'protocol/build/libs/minedriver-protocol-0.1.0-SNAPSHOT.jar'))
+        classpath fileTree(new File(System.getProperty('user.home'), '.gradle/caches/modules-2/files-2.1/com.google.code.gson/gson/2.13.2')) { include '**/*.jar' }
+    }
+}
+gradle.beforeProject { project ->
+    if (project.name == System.getProperty('minedriver.target', 'fabric-26.3')) {
+        project.pluginManager.apply(io.github.billstark001.minedriver.gradle.MineDriverPlugin)
+        project.mineDriver {
+            plan.set(new File(System.getProperty('minedriver.plan', 'D:/Programs/minedriver/examples/plans/title-smoke.json')))
+            timeoutMillis.set(300000L)
+            if (System.getProperty('minedriver.disableGametest', 'false') == 'true') {
+                disabledModIds.addAll('fabric-gametest-api-v1', 'fabric-client-gametest-api-v1')
+            }
+            if (System.getProperty('minedriver.disableMaps', 'false') == 'true') {
+                disabledModIds.addAll('xaero_world_map_bridge', 'xaeroworldmap', 'xaerominimap')
+            }
+        }
+    }
+}

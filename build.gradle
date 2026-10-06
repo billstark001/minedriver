@@ -1,6 +1,13 @@
 plugins {
     id 'base'
-    id 'com.diffplug.spotless' version '8.10.3' apply false
+    id 'com.diffplug.spotless' version '8.10.3'
+}
+
+spotless {
+    java {
+        googleJavaFormat('1.30.0')
+        target 'examples/**/*.java', 'integration/**/src/**/*.java'
+    }
 }
 
 allprojects {
@@ -39,16 +46,20 @@ subprojects {
         useJUnitPlatform()
         maxHeapSize = '768m'
     }
+    tasks.named('processResources') {
+        from(rootProject.file('LICENSE')) { into 'META-INF/minedriver' }
+        from(rootProject.file('licenses')) { into 'META-INF/minedriver/licenses' }
+    }
     tasks.named('check') { dependsOn 'spotlessCheck' }
     publishing {
         publications {
-            if (project.name != 'gradle-plugin') {
+            if (!(project.name in ['gradle-plugin', 'test-support'])) {
                 mavenJava(MavenPublication) { from components.java }
             }
         }
     }
 }
 
-tasks.register('format') { dependsOn subprojects.collect { it.tasks.named('spotlessApply') } }
-tasks.named('check') { dependsOn subprojects.collect { it.tasks.named('check') } }
+tasks.register('format') { dependsOn 'spotlessApply'; dependsOn subprojects.collect { it.tasks.named('spotlessApply') } }
+tasks.named('check') { dependsOn 'spotlessCheck'; dependsOn subprojects.collect { it.tasks.named('check') } }
 tasks.named('build') { dependsOn subprojects.collect { it.tasks.named('build') } }

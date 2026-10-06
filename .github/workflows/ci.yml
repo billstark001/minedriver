@@ -26,3 +26,4 @@ jobs:
           path: |
             **/build/reports/
             **/build/test-results/
+            !**/connection.json

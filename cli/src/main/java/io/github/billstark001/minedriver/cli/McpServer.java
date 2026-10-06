@@ -43,8 +43,16 @@ final class McpServer {
         if (line.length() > 1_048_576) throw new IllegalArgumentException("Message exceeds 1 MiB");
         request = JsonParser.parseString(line).getAsJsonObject();
         response.add("id", request.has("id") ? request.get("id") : JsonNull.INSTANCE);
-        if (!request.has("jsonrpc") || !"2.0".equals(request.get("jsonrpc").getAsString()))
-          throw new IllegalArgumentException("Expected JSON-RPC 2.0");
+        if (!string(request, "jsonrpc")
+            || !"2.0".equals(request.get("jsonrpc").getAsString())
+            || !string(request, "method")
+            || (request.has("id")
+                && !(request.get("id").isJsonPrimitive()
+                    && (request.getAsJsonPrimitive("id").isNumber()
+                        || request.getAsJsonPrimitive("id").isString()))))
+          throw new ProtocolFailure(-32600, "Expected a valid JSON-RPC 2.0 request");
+        if (request.has("params") && !request.get("params").isJsonObject())
+          throw new ProtocolFailure(-32602, "params must be an object");
         String method = request.get("method").getAsString();
         if (!request.has("id")) {
           if (method.equals("notifications/initialized") && negotiated) initialized = true;
@@ -162,5 +170,11 @@ final class McpServer {
       super(message);
       this.code = code;
     }
+  }
+
+  private static boolean string(JsonObject object, String key) {
+    return object.has(key)
+        && object.get(key).isJsonPrimitive()
+        && object.getAsJsonPrimitive(key).isString();
   }
 }

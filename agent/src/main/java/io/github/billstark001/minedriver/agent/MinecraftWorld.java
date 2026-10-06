@@ -148,6 +148,7 @@ final class MinecraftWorld {
   }
 
   Object disconnect(Duration timeout) {
+    Object server = game.client(game::server, timeout);
     game.client(
         () -> {
           Reflect.call(game.minecraft, "disconnectWithSavingScreen");
@@ -155,9 +156,12 @@ final class MinecraftWorld {
         },
         timeout);
     await(
-        () -> game.client(() -> game.level() == null && game.server() == null, timeout),
+        () ->
+            game.client(() -> game.level() == null && game.server() == null, timeout)
+                && (server == null || Boolean.TRUE.equals(Reflect.call(server, "isStopped"))),
         timeout,
         "world disconnect");
+    game.awaitFrames(2, timeout);
     return true;
   }
 
@@ -165,6 +169,70 @@ final class MinecraftWorld {
     for (Object constant : type.getEnumConstants())
       if (((Enum<?>) constant).name().equals(name)) return constant;
     throw Parameters.invalid("Unknown " + type.getSimpleName() + " value " + name);
+  }
+
+  Object snapshot(Map<String, Object> parameters, Duration timeout) {
+    String uuid =
+        game.client(
+            () -> {
+              if (game.player() == null)
+                throw new DriverException("NO_WORLD", "A player is required");
+              return Reflect.call(game.player(), "getUUID").toString();
+            },
+            timeout);
+    return game.server(
+        () -> {
+          Object player =
+              Reflect.call(
+                  Reflect.call(game.server(), "getPlayerList"),
+                  "getPlayer",
+                  java.util.UUID.fromString(uuid));
+          if (player == null)
+            throw new DriverException("NO_SERVER_PLAYER", "Server has not registered the player");
+          Object level = Reflect.call(player, "level");
+          var blocks = new java.util.ArrayList<Object>();
+          for (Object entry : Parameters.list(parameters, "blocks")) {
+            Map<String, Object> p = map(entry);
+            Object position =
+                Reflect.create(
+                    game.type("net.minecraft.core.BlockPos"),
+                    Parameters.integer(p, "x", 0, -30000000, 30000000),
+                    Parameters.integer(p, "y", 0, -2048, 2048),
+                    Parameters.integer(p, "z", 0, -30000000, 30000000));
+            Object state = Reflect.call(level, "getBlockState", position);
+            Object id =
+                Reflect.call(
+                    Reflect.field(
+                        game.type("net.minecraft.core.registries.BuiltInRegistries"), "BLOCK"),
+                    "getKey",
+                    Reflect.call(state, "getBlock"));
+            blocks.add(Map.of("position", p, "id", id.toString(), "state", state.toString()));
+          }
+          var inventory = new java.util.ArrayList<Object>();
+          for (Object value : Parameters.list(parameters, "slots")) {
+            int slot = Parameters.integer(Map.of("slot", value), "slot", 0, 0, 35);
+            Object stack = Reflect.call(Reflect.call(player, "getInventory"), "getItem", slot);
+            Object id =
+                Reflect.call(
+                    Reflect.field(
+                        game.type("net.minecraft.core.registries.BuiltInRegistries"), "ITEM"),
+                    "getKey",
+                    Reflect.call(stack, "getItem"));
+            inventory.add(
+                Map.of(
+                    "slot", slot, "id", id.toString(), "count", Reflect.call(stack, "getCount")));
+          }
+          return Map.of(
+              "authoritative",
+              true,
+              "blocks",
+              blocks,
+              "inventory",
+              inventory,
+              "tick",
+              Reflect.call(game.server(), "getTickCount"));
+        },
+        timeout);
   }
 
   static void await(

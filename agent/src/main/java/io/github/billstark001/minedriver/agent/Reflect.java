@@ -23,11 +23,18 @@ final class Reflect {
   static Object call(Object target, String name, Object... arguments) {
     Class<?> type = target instanceof Class<?> clazz ? clazz : target.getClass();
     List<Method> matches = new ArrayList<>();
+    List<Method> bridges = new ArrayList<>();
     for (Method method : type.getMethods()) {
-      if (!method.getName().equals(name) || method.isBridge()) continue;
+      if (!method.getName().equals(name)) continue;
       if (target instanceof Class<?> && !Modifier.isStatic(method.getModifiers())) continue;
-      if (matches(method.getParameterTypes(), arguments)) matches.add(method);
+      if (matches(method.getParameterTypes(), arguments)) {
+        if (method.isBridge()) bridges.add(method);
+        else matches.add(method);
+      }
     }
+    // Java emits public visibility bridges for methods inherited from non-public parents.
+    // Retain those only when there is no compatible non-bridge implementation.
+    if (matches.isEmpty()) matches.addAll(bridges);
     if (matches.size() != 1)
       throw new DriverException(
           "UNSUPPORTED_API",
@@ -61,6 +68,19 @@ final class Reflect {
     }
     if (type.getSuperclass() != null) return publicInterfaceMethod(type.getSuperclass(), method);
     throw new NoSuchMethodException(method.toString());
+  }
+
+  /** Only for explicitly versioned native callbacks; never exposed as a general RPC command. */
+  static Object callback(Object target, String name, Class<?>[] signature, Object... arguments) {
+    try {
+      Method method = target.getClass().getDeclaredMethod(name, signature);
+      if (!method.trySetAccessible()) throw new IllegalAccessException(method.toString());
+      return method.invoke(target, arguments);
+    } catch (InvocationTargetException error) {
+      throw propagate(error.getCause());
+    } catch (ReflectiveOperationException error) {
+      throw new DriverException("UNSUPPORTED_API", "Native callback unavailable: " + name, error);
+    }
   }
 
   static Object create(Class<?> type, Object... arguments) {

@@ -1,0 +1,13 @@
+{
+  "steps": [
+    {"command": "session.inspect"},
+    {"command": "assert.state", "parameters": {"path": "screen", "equals": "net.minecraft.client.gui.screens.TitleScreen"}},
+    {"command": "assert.widget", "parameters": {"selector": {"key": "menu.options"}}},
+    {"command": "input.click", "parameters": {"selector": {"key": "menu.options"}}},
+    {"command": "wait.state", "parameters": {"path": "screen", "equals": "net.minecraft.client.gui.screens.options.OptionsScreen"}},
+    {"command": "screenshot.capture", "parameters": {"name": "options"}},
+    {"command": "input.key", "parameters": {"key": "ESCAPE"}},
+    {"command": "wait.state", "parameters": {"path": "screen", "equals": "net.minecraft.client.gui.screens.TitleScreen"}},
+    {"command": "screenshot.capture", "parameters": {"name": "title"}}
+  ]
+}
