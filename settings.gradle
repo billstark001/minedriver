@@ -1,3 +1,3 @@
 pluginManagement { repositories { gradlePluginPortal(); mavenCentral() } }
 rootProject.name = 'MineDriver'
-include 'api', 'protocol', 'hooks', 'agent', 'test-support'
+include 'api', 'protocol', 'hooks', 'agent', 'gradle-plugin', 'cli', 'test-support'

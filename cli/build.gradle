@@ -1,0 +1,4 @@
+plugins { id 'application' }
+base { archivesName = 'minedriver-cli' }
+dependencies { implementation project(':protocol') }
+application { mainClass = 'io.github.billstark001.minedriver.cli.Main'; applicationName = 'minedriver' }

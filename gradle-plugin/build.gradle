@@ -1,0 +1,33 @@
+plugins { id 'java-gradle-plugin' }
+base { archivesName = 'minedriver-gradle-plugin' }
+dependencies {
+    implementation project(':protocol')
+    testImplementation gradleTestKit()
+    testImplementation project(':test-support')
+}
+
+tasks.named('test') {
+    dependsOn ':test-support:jar'
+    systemProperty 'minedriver.testSupportJar', project(':test-support').tasks.named('jar').get().archiveFile.get().asFile.absolutePath
+}
+gradlePlugin {
+    plugins {
+        mineDriver {
+            id = 'io.github.billstark001.minedriver'
+            implementationClass = 'io.github.billstark001.minedriver.gradle.MineDriverPlugin'
+            displayName = 'MineDriver'
+            description = 'Minecraft development inspection, scenarios, and testing through a Java agent.'
+        }
+    }
+}
+tasks.named('processResources') {
+    dependsOn ':agent:shadowJar', ':api:jar'
+    from(project(':agent').tasks.named('shadowJar')) {
+        into 'io/github/billstark001/minedriver/artifacts'
+        rename { 'agent.jar' }
+    }
+    from(project(':api').tasks.named('jar')) {
+        into 'io/github/billstark001/minedriver/artifacts'
+        rename { 'api.jar' }
+    }
+}
