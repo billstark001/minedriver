@@ -1,0 +1,4 @@
+interface:
+  display_name: "MineDriver"
+  short_description: "Inspect Minecraft clients and verify mod behavior"
+  default_prompt: "Use $minedriver to verify this mod in an isolated Minecraft client and report the observed behavior and artifacts."
