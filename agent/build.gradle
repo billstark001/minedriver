@@ -1,0 +1,41 @@
+plugins { id 'com.gradleup.shadow' version '9.6.1' }
+base { archivesName = 'minedriver-agent' }
+dependencies {
+    implementation project(':api')
+    implementation project(':protocol')
+    implementation 'org.ow2.asm:asm:9.8'
+    compileOnly project(':hooks')
+    testImplementation project(':test-support')
+    testImplementation project(':hooks')
+}
+tasks.named('processResources') {
+    dependsOn ':hooks:jar'
+    from(project(':hooks').tasks.named('jar')) {
+        into 'io/github/billstark001/minedriver/agent'
+        rename { 'bootstrap-hooks.jar' }
+    }
+}
+tasks.named('jar', Jar) {
+    archiveClassifier = 'thin'
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    manifest {
+        attributes 'Premain-Class': 'io.github.billstark001.minedriver.agent.MineDriverAgent',
+                'Agent-Class': 'io.github.billstark001.minedriver.agent.MineDriverAgent',
+                'Can-Retransform-Classes': 'true',
+                'Implementation-Version': project.version,
+                'Automatic-Module-Name': 'io.github.billstark001.minedriver.agent'
+    }
+    exclude 'META-INF/*.SF', 'META-INF/*.RSA', 'META-INF/*.DSA', 'module-info.class', 'META-INF/versions/**/module-info.class'
+}
+
+tasks.named('shadowJar') {
+    archiveClassifier = ''
+    relocate 'org.objectweb.asm', 'io.github.billstark001.minedriver.internal.asm'
+    relocate 'com.google.gson', 'io.github.billstark001.minedriver.internal.gson'
+    exclude 'module-info.class', 'META-INF/versions/**/module-info.class'
+}
+tasks.named('assemble') { dependsOn 'shadowJar' }
+publishing.publications.named('mavenJava') {
+    setArtifacts([tasks.named('shadowJar'), tasks.named('sourcesJar'), tasks.named('javadocJar')])
+    pom.withXml { asNode().remove(asNode().dependencies) }
+}

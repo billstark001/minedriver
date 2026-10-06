@@ -1,0 +1,54 @@
+plugins {
+    id 'base'
+    id 'com.diffplug.spotless' version '8.10.3' apply false
+}
+
+allprojects {
+    group = 'io.github.billstark001.minedriver'
+    version = rootProject.providers.gradleProperty('version').get()
+    repositories { mavenCentral() }
+}
+
+subprojects {
+    apply plugin: 'java-library'
+    apply plugin: 'maven-publish'
+    apply plugin: 'com.diffplug.spotless'
+    java {
+        toolchain.languageVersion = JavaLanguageVersion.of(25)
+        withSourcesJar()
+        withJavadocJar()
+    }
+    tasks.withType(JavaCompile).configureEach {
+        options.release = 17
+        options.encoding = 'UTF-8'
+        options.compilerArgs.addAll(['-Xlint:all,-serial', '-Werror'])
+    }
+    tasks.withType(Javadoc).configureEach {
+        options.encoding = 'UTF-8'
+        options.addStringOption('Xdoclint:none', '-quiet')
+    }
+    spotless {
+        java { googleJavaFormat('1.30.0'); target 'src/**/*.java' }
+    }
+    dependencies {
+        testImplementation platform('org.junit:junit-bom:5.12.2')
+        testImplementation 'org.junit.jupiter:junit-jupiter'
+        testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+    }
+    tasks.withType(Test).configureEach {
+        useJUnitPlatform()
+        maxHeapSize = '768m'
+    }
+    tasks.named('check') { dependsOn 'spotlessCheck' }
+    publishing {
+        publications {
+            if (project.name != 'gradle-plugin') {
+                mavenJava(MavenPublication) { from components.java }
+            }
+        }
+    }
+}
+
+tasks.register('format') { dependsOn subprojects.collect { it.tasks.named('spotlessApply') } }
+tasks.named('check') { dependsOn subprojects.collect { it.tasks.named('check') } }
+tasks.named('build') { dependsOn subprojects.collect { it.tasks.named('build') } }
