@@ -4,7 +4,7 @@ MineDriver is a Minecraft mod development and debugging toolkit. Its Gradle plug
 
 **Package/plugin ID:** `io.github.billstark001.minedriver` · **Version:** `0.1.0-SNAPSHOT` · **License:** MIT
 
-[简体中文](docs/README.zh-CN.md) · [Commands](docs/commands.md) · [Architecture/extensions](docs/architecture.md) · [Native frameworks](docs/frameworks.md) · [Compatibility/validation](docs/validation.md)
+[简体中文](docs/README.zh-CN.md) · [Agent skill](docs/skills.md) · [Commands](docs/commands.md) · [Architecture/extensions](docs/architecture.md) · [Native frameworks](docs/frameworks.md) · [Compatibility/validation](docs/validation.md)
 
 ## Features
 
@@ -73,6 +73,20 @@ build/reports/minedriver/<task>/latest.json
 ```
 
 A check requires a nonempty plan or a Java scenario. Success requires a complete PASS result carrying the current run ID and a successful process exit. Zero exit, stale/missing reports, startup failure and timeouts cannot substitute for a passing test.
+
+## Agent skill
+
+The portable [minedriver skill](.agents/skills/minedriver/SKILL.md) guides agents through client inspection, UI/world reproductions, regression tests and failure triage. It loads session and test-authoring references only when needed, and distinguishes observed behavior from provisional or stale test results.
+
+Codex discovers it from this checkout's `.agents/skills`. For work in another mod repository, copy the **whole** `.agents/skills/minedriver` folder into that repository's `.agents/skills`, or install it using the [installation guide](docs/skills.md). The skill requires a usable MineDriver installation/session; it does not install the Gradle plugin or configure an MCP server automatically.
+
+Example prompt after installation:
+
+```text
+Use $minedriver to verify this mod's settings in English, Simplified/Traditional Chinese and Japanese. Assert navigation and report screenshots and failures.
+```
+
+See [skill setup, examples and maintenance](docs/skills.md) for discovery paths, installation from GitHub and CLI/MCP prerequisites.
 
 ## Interactive CLI and MCP
 

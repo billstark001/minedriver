@@ -4,6 +4,8 @@ MineDriver 是 Minecraft mod 开发和调试工具，主体为 **Gradle 插件 +
 
 它克隆已有 Loom / ModDevGradle 的客户端启动配置，保留依赖准备、classpath、参数和环境，在独立游戏目录中注入 Agent。工具本身没有 mod 元数据或初始化器。原生框架示例的元数据仅属于框架的测试对象。
 
+面向 agent 的 [minedriver 技能](../.agents/skills/minedriver/SKILL.md) 位于 `.agents/skills/minedriver`，涵盖客户端观察、UI / 世界复现、回归测试和失败诊断。见 [技能安装和使用指引](skills.md)。
+
 ## 当前能力
 
 | 功能 | 接口 |
@@ -70,6 +72,18 @@ build/reports/minedriver/<task>/latest.json
 ```
 
 检查模式要求非空计划或 Java 场景。只有本次 run ID 的完整 PASS 报告和成功退出码才能通过；加载失败、旧或缺失报告、超时、断言失败都使 Gradle 失败。应用插件不会自动改变普通运行、构建或发布任务。
+
+## Agent 技能
+
+Codex 在本仓库中可发现 `.agents/skills/minedriver`。在其它 mod 项目工作时，将这个**完整文件夹**复制到目标项目的 `.agents/skills`，或按 [安装指引](skills.md) 从 GitHub 安装；不要只复制 `SKILL.md`，其按需加载的参考文件也需要保留。技能本身不会安装 Gradle 插件，也不会自动配置 MCP server。
+
+安装后可以这样请求：
+
+```text
+使用 $minedriver 验证此 mod 的设置界面在英文、简繁中文和日文下的导航与行为，检查断言并报告截图和失败原因。
+```
+
+技能支持 CLI 和 MCP 两种方式，包含会话选择、精确控件选择、异步测试结果验证、服务端权威断言及报告检查。安装路径、其它 agent 的使用方式和维护说明见 [skills.md](skills.md)。
 
 ## 交互和 MCP
 
