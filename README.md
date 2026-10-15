@@ -2,7 +2,7 @@
 
 MineDriver is a Minecraft mod development and debugging toolkit. Its Gradle plugin launches an isolated client with a Java agent; a local CLI, JSON plans, Java scenarios and an MCP stdio bridge inspect and control that client.
 
-**Package/plugin ID:** `io.github.billstark001.minedriver` · **Version:** `0.1.0-SNAPSHOT` · **License:** MIT
+**Package/plugin ID:** `io.github.billstark001.minedriver` · **Version:** `0.2.0` · **License:** MIT
 
 [简体中文](docs/README.zh-CN.md) · [Agent skill](docs/skills.md) · [Commands](docs/commands.md) · [Architecture/extensions](docs/architecture.md) · [Native frameworks](docs/frameworks.md) · [Compatibility/validation](docs/validation.md)
 
@@ -34,7 +34,7 @@ Use `./gradlew` on Unix. In Linux CI run the whole client invocation under `xvfb
 
 ## Add to a mod project
 
-This snapshot is usable through a composite build; it has not been published to the Plugin Portal. Add the checkout to the existing `pluginManagement` block in your project's `settings.gradle`:
+The plugin is usable through a composite build; it has not been published to the Plugin Portal. Add the checkout to the existing `pluginManagement` block in your project's `settings.gradle`:
 
 ```groovy
 pluginManagement {
@@ -43,7 +43,7 @@ pluginManagement {
 }
 ```
 
-Alternatively, run `publishToMavenLocal` in this checkout, add `mavenLocal()` to the consuming project's plugin repositories, and apply `id 'io.github.billstark001.minedriver' version '0.1.0-SNAPSHOT'`. The local plugin marker and a complete forked client launch through that published plugin were verified. No remote publication is performed.
+Alternatively, run `publishToMavenLocal` in this checkout, add `mavenLocal()` to the consuming project's plugin repositories, and apply `id 'io.github.billstark001.minedriver' version '0.2.0'`. The local plugin marker and a complete forked client launch through that published plugin were verified. No remote publication is performed.
 
 In the loader subproject, apply MineDriver alongside your existing Loom/ModDevGradle plugin:
 
@@ -142,6 +142,8 @@ Current runtime adapters support **Minecraft 26.2 and 26.3**, with the tested co
 
 Development detection is required by default. `allowProduction=true` opts into experimental production/unclassified use; `allowUnsupportedRuntime=true` separately opts into unknown versions. Neither provides compatibility guarantees or a sandbox. Java scenarios execute trusted code in the game process.
 
+NeoForge loading warnings fail promptly before scenarios start. Diagnose the issue from `startup.warnings`, `failure-ui.json` and the screenshot; only then configure exact `acceptedStartupWarnings` entries (`modId:translationKey`) if appropriate. All warnings must match, and errors always block. Accepted warnings remain in the report. Mod/audio initialization alone does not prove title-screen readiness.
+
 The random loopback endpoint uses a per-session bearer secret in `connection.json`. Keep it local and omit it, private logs and copied account configuration when sharing reports. Use test accounts/servers/worlds appropriate for the scenario.
 
 ```powershell
@@ -150,4 +152,4 @@ The random loopback endpoint uses a per-session bearer secret in `connection.jso
 .\gradlew.bat publishToMavenLocal # optional local artifacts and Gradle plugin marker
 ```
 
-CI performs verification only. No release workflow, automatic publication or release tag is configured.
+CI verifies Linux and Windows builds. Tags create GitHub releases containing versioned JARs, CLI distributions and checksums; see [release instructions](docs/releasing.md). Plugin Portal and remote Maven publication are not configured.

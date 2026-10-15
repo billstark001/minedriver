@@ -93,7 +93,7 @@ final class McpServer {
           "capabilities",
           Map.of("tools", Map.of("listChanged", false)),
           "serverInfo",
-          Map.of("name", "MineDriver", "version", "0.1.0-SNAPSHOT"),
+          Map.of("name", "MineDriver", "version", "0.2.0"),
           "instructions",
           "Controls the local development Minecraft client selected by its connection file. Mutating actions may change its isolated world.");
     }

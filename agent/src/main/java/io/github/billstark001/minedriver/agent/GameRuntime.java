@@ -167,7 +167,7 @@ final class GameRuntime {
     Object version = Reflect.call(type("net.minecraft.SharedConstants"), "getCurrentVersion");
     result.put("minecraft", Reflect.call(version, "name"));
     result.put("java", System.getProperty("java.version"));
-    result.put("agent", "0.1.0-SNAPSHOT");
+    result.put("agent", "0.2.0");
     result.put("loader", "vanilla");
     result.put("development", false);
     try {

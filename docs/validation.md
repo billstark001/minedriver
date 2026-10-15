@@ -46,7 +46,15 @@ Set `-Dminedriver.root=<checkout>` and `-Dminedriver.plan=<plan>` when using ano
 
 ## Automated regression coverage
 
-Root verification currently includes **22 tests**, covering:
+### 2026-10-16 Latticium follow-up
+
+Latticium's NeoForge 26.3 client exposed a readiness race: `world.create` returned a live player/level while `LevelLoadingScreen` was still present, and an immediately dispatched F8 shortcut was ignored. The driver now waits for loading-screen and resource-overlay dismissal. A simulated regression covers partial world initialization, loading screens and overlays; the real rerun passed native F8, pause/resume, screen-focus shortcut exclusion, task/diagnostic navigation and Cloth settings in `en_us`, `zh_cn`, `zh_tw` and `ja_jp` at a 640×480 physical / 320×240 GUI viewport. The fresh successful Latticium run is `1792077668279-fe3177ec-d3bf-4bfe-8e17-bace843c33ec`. The corresponding earlier failure is retained as `1792077370531-00807e84-99bd-4f49-b62b-b39719184285`. Multiplayer connection uses the same readiness predicate but dedicated-server validation remains open.
+
+Latticium's NeoForge 26.2 / 26.2.0.88 fixture also reproduced a developer warning about Cloth Config 26.2.155's `logoFile` metadata. Before the fix, run `1792078106408-8bcf3cc5-e62e-4ebf-8c2c-220510695756` waited for the 600-second watchdog without starting its scenario. The corrected default rejected it promptly with `STARTUP_WARNINGS` in `1792078700545-f150519b-e738-4b96-8d6d-e1e572b823a7`, retaining native issue details and a screenshot. Exact acceptance of that affected-mod/key pair then passed the gameplay and four-language UI flow in `1792078763097-fb0f3bf8-003e-4789-a172-127a66adb78e`. The native continue label is a literal Component generated with `fml.button.continue.launch`; the old `fml.button.proceed` key selector did not work. Rejected unknown warnings and fatal errors also have deterministic unit coverage.
+
+An additional Forgematica run exposed a loader-handled crash before the first completed frame: MaFgLib's unsynchronized initialization-handler list failed during parallel mod construction, and the loader wrote a native crash report without invoking the agent's uncaught handler. Startup now detects fresh client crash reports in the isolated run directory and reports `STARTUP_CRASH`; older seeded reports are ignored. A forked simulated-client test deliberately writes a handled crash report and never renders a frame, proving this path terminates without the session watchdog. The consuming bridge repairs the separate source-library registration race.
+
+The follow-up `check build :cli:installDist` passed with **28 tests, zero failures/errors/skips**, covering:
 
 - Typed/ambiguous reflection, public visibility bridges and exact private native callbacks.
 - Authenticated RPC, malformed envelopes, unknown commands and recorded RPC steps.
@@ -61,6 +69,10 @@ Root verification currently includes **22 tests**, covering:
 - Fresh native reports replacing stale PASS and rejection of all-skipped results.
 
 The test-support client does not render or load real mods; real checks above establish the actual game behavior.
+
+## 0.2.0 release verification (2026-10-16)
+
+After reviewing and dating the changelog, the version was advanced to 0.2.0. `format check build :cli:installDist` passed with 28 tests and zero failures/errors/skips. The release collector produced five versioned JARs and both CLI distribution archives, with SHA-256 checksums. Agent inspection and MCP identification now report 0.2.0; the consuming-project init script selects the matching versioned plugin/protocol artifacts. Earlier native evidence above retains the snapshot version actually used. See [release instructions](releasing.md) for distribution and publication boundaries.
 
 ## Resolved issues and remaining boundaries
 

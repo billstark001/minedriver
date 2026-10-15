@@ -1,6 +1,6 @@
 # MineDriver
 
-MineDriver 是 Minecraft mod 开发和调试工具，主体为 **Gradle 插件 + Java Agent**，包名和插件 ID 均为 `io.github.billstark001.minedriver`，版本为 `0.1.0-SNAPSHOT`。
+MineDriver 是 Minecraft mod 开发和调试工具，主体为 **Gradle 插件 + Java Agent**，包名和插件 ID 均为 `io.github.billstark001.minedriver`，版本为 `0.2.0`。
 
 它克隆已有 Loom / ModDevGradle 的客户端启动配置，保留依赖准备、classpath、参数和环境，在独立游戏目录中注入 Agent。工具本身没有 mod 元数据或初始化器。原生框架示例的元数据仅属于框架的测试对象。
 
@@ -103,8 +103,14 @@ MCP stdio server 使用上述程序，参数为 `latest.json` 路径和 `mcp`。
 
 明确适配 Minecraft 26.2、26.3 的已验证组合。生产或无法识别的环境默认拒绝，`allowProduction=true` 可实验性尝试，未知版本还需 `allowUnsupportedRuntime=true`。旧版混淆环境需要额外适配。
 
+准备阶段必须到达标题界面并结束资源覆盖层。NeoForge 加载警告默认立即以 `STARTUP_WARNINGS` 失败，加载错误以 `STARTUP_ERRORS` 失败；先查报告里的 `startup.warnings`、`failure-ui.json`、截图和原生日志。确诊后可在 `mineDriver.acceptedStartupWarnings` 中加入精确的 `modId:translationKey`，每条警告都必须匹配，任何错误都会阻止继续。键可能是原生 issue 中的字面模板；不要按屏幕上的英文文本猜键。已接受的警告仍写入报告。模组和音效加载完成不能证明已经越过警告界面。
+
+`world.create` 和 `world.connect` 还会等待加载界面与覆盖层消失，避免刚获得 player/level 就发送按键而丢失事件。多人连接仍需独立验证。
+
+若 loader 在首帧前处理了崩溃但进程未退出，agent 会检查本次隔离目录中新生成的原生客户端崩溃报告，并以 `STARTUP_CRASH` 失败；旧的种子报告不会触发此检查。此时还没有可截图的界面，应查看报告给出的原生 crash-report 路径。
+
 语义操作直接调用控件行为，输入操作调用游戏事件处理，都不是系统鼠标/键盘事件。visible 标志不代表像素级无遮挡；完成帧屏障不等于 GPU 完成同步。多人连接和生产环境尚未纳入真实测试矩阵。
 
 `connection.json` 含会话密钥，应留在本机。分享报告时去掉密钥、私人日志和账户配置。Agent 和 Java 扩展有游戏进程内完整代码执行能力，不是沙箱。
 
-项目有验证 CI，没有发布工作流、自动发布或发布标签。详见 [完整英文说明](../README.md)、[命令](commands.md)、[架构](architecture.md)、[原生框架](frameworks.md)、[验证记录](validation.md)。
+项目的 CI 验证 Linux 和 Windows 构建；版本标签触发 GitHub Release，提供版本化 JAR、CLI 压缩包和 SHA-256 校验和。Plugin Portal 与远程 Maven 发布尚未配置。详见 [发布说明](releasing.md)、 [完整英文说明](../README.md)、[命令](commands.md)、[架构](architecture.md)、[原生框架](frameworks.md)、[验证记录](validation.md)。
