@@ -65,13 +65,14 @@ public final class Minecraft {
 
   public static final class Gui {
     private Screen screen;
+    public Object currentOverlay;
 
     public Screen screen() {
       return screen;
     }
 
     public Object overlay() {
-      return null;
+      return currentOverlay;
     }
 
     public void setScreen(Screen value) {

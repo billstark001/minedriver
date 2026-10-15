@@ -71,6 +71,13 @@ final class GameRuntime {
     return Reflect.field(minecraft, "level");
   }
 
+  /**
+   * A loaded player/level can precede dismissal of the loading screen and native input readiness.
+   */
+  boolean gameplayReady() {
+    return level() != null && player() != null && screen() == null && overlay() == null;
+  }
+
   Object server() {
     return Reflect.call(minecraft, "getSingleplayerServer");
   }

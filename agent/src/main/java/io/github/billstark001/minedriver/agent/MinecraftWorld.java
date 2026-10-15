@@ -66,13 +66,7 @@ final class MinecraftWorld {
           return null;
         },
         timeout);
-    await(
-        () ->
-            game.client(
-                () -> game.level() != null && game.player() != null && game.overlay() == null,
-                timeout),
-        timeout,
-        "world ready");
+    await(() -> game.client(game::gameplayReady, timeout), timeout, "world ready");
     return game.client(game::inspect, timeout);
   }
 

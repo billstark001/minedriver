@@ -121,6 +121,36 @@ class RuntimeSafetyTest {
   }
 
   @Test
+  void worldReadinessWaitsForLoadingScreensAndReloadOverlays() throws Exception {
+    Path config = directory.resolve("config.json");
+    Json.write(
+        config,
+        Map.of(
+            "protocol",
+            1,
+            "runId",
+            "world-ready",
+            "outputDirectory",
+            directory.toString(),
+            "allowProduction",
+            true));
+    var minecraft = new net.minecraft.client.Minecraft();
+    var game = new GameRuntime(minecraft, AgentConfig.read(config), new FrameTransformer());
+    assertFalse(game.gameplayReady());
+    minecraft.player = new Object();
+    assertFalse(game.gameplayReady());
+    minecraft.level = new Object();
+    assertTrue(game.gameplayReady());
+    minecraft.gui.setScreen(new net.minecraft.client.gui.screens.Screen(java.util.List.of()));
+    assertFalse(game.gameplayReady());
+    minecraft.gui.setScreen(null);
+    minecraft.gui.currentOverlay = new Object();
+    assertFalse(game.gameplayReady());
+    minecraft.gui.currentOverlay = null;
+    assertTrue(game.gameplayReady());
+  }
+
+  @Test
   void rpcCommandsAreWrittenToTheRunTrace() throws Exception {
     Path config = directory.resolve("config.json");
     Json.write(

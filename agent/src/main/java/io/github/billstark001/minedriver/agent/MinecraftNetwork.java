@@ -70,12 +70,7 @@ final class MinecraftNetwork {
         },
         timeout);
     MinecraftWorld.await(
-        () ->
-            game.client(
-                () -> game.player() != null && game.level() != null && game.overlay() == null,
-                timeout),
-        timeout,
-        "multiplayer world");
+        () -> game.client(game::gameplayReady, timeout), timeout, "multiplayer world");
     return game.client(() -> inspect(game), timeout);
   }
 }
