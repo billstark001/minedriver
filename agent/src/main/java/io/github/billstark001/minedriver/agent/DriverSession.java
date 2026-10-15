@@ -435,8 +435,24 @@ final class DriverSession implements Driver, AutoCloseable {
                     game.ui.activate(Map.of("selector", Map.of("key", "gui.continue")));
                     return false;
                   }
-                  if (type.endsWith(".LoadingErrorScreen") && config.allowStartupWarnings()) {
-                    game.ui.activate(Map.of("selector", Map.of("key", "fml.button.proceed")));
+                  if (type.endsWith(".LoadingErrorScreen")) {
+                    var issues = StartupWarnings.read(game);
+                    long start = System.nanoTime();
+                    try {
+                      StartupWarnings.requireAccepted(
+                          issues, config.allowStartupWarnings(), config.acceptedStartupWarnings());
+                      StartupWarnings.proceed(game);
+                      report.step(
+                          "startup.warnings", "startup", System.nanoTime() - start, issues, null);
+                    } catch (RuntimeException failure) {
+                      report.step(
+                          "startup.warnings",
+                          "startup",
+                          System.nanoTime() - start,
+                          issues,
+                          failure);
+                      throw failure;
+                    }
                     return false;
                   }
                   return false;

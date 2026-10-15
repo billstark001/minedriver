@@ -177,6 +177,18 @@ class PluginFunctionalTest {
   }
 
   @Test
+  void handledStartupCrashFailsBeforeAFrameWithoutWaitingForTheWatchdog() throws Exception {
+    var runner = fixture("[{\"command\":\"session.inspect\"}]");
+    Files.writeString(
+        temporary.resolve("build.gradle"),
+        "\ntasks.named('runClient') { systemProperty 'minedriver.testStartupCrash', 'true' }\nmineDriver.timeoutMillis.set(120000L)\n",
+        java.nio.file.StandardOpenOption.APPEND);
+    var result = runner.buildAndFail();
+    assertTrue(result.getOutput().contains("STARTUP_CRASH"));
+    assertFalse(result.getOutput().contains("SESSION_TIMEOUT"));
+  }
+
+  @Test
   void freshNativeReportReplacesStalePassAndAllSkippedFails() throws Exception {
     var runner = fixture("[{\"command\":\"session.inspect\"}]");
     Files.writeString(

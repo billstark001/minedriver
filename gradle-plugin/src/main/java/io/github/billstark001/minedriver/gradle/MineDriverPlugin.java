@@ -177,6 +177,7 @@ public final class MineDriverPlugin implements Plugin<Project> {
               task.getAllowProduction().set(extension.getAllowProduction());
               task.getAllowUnsupportedRuntime().set(extension.getAllowUnsupportedRuntime());
               task.getAllowStartupWarnings().set(extension.getAllowStartupWarnings());
+              task.getAcceptedStartupWarnings().set(extension.getAcceptedStartupWarnings());
               task.getUnsafeReflection().set(extension.getUnsafeReflection());
               task.getScenarioClasspath().from(scenarios.getRuntimeClasspath());
               task.getSeedFiles().from(extension.getSeedFiles());

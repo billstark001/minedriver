@@ -19,6 +19,7 @@ public class MineDriverExtension {
   private final Property<Boolean> allowProduction;
   private final Property<Boolean> allowUnsupportedRuntime;
   private final Property<Boolean> allowStartupWarnings;
+  private final ListProperty<String> acceptedStartupWarnings;
   private final Property<Boolean> unsafeReflection;
   private final ConfigurableFileCollection seedFiles;
   private final NamedDomainObjectContainer<RunProfile> profiles;
@@ -36,6 +37,7 @@ public class MineDriverExtension {
     allowProduction = objects.property(Boolean.class).convention(false);
     allowUnsupportedRuntime = objects.property(Boolean.class).convention(false);
     allowStartupWarnings = objects.property(Boolean.class).convention(false);
+    acceptedStartupWarnings = objects.listProperty(String.class).convention(java.util.List.of());
     unsafeReflection = objects.property(Boolean.class).convention(false);
     seedFiles = objects.fileCollection();
     profiles =
@@ -82,6 +84,11 @@ public class MineDriverExtension {
 
   public Property<Boolean> getAllowStartupWarnings() {
     return allowStartupWarnings;
+  }
+
+  /** Exact {@code modId:translationKey} pairs; errors and unmatched warnings always block. */
+  public ListProperty<String> getAcceptedStartupWarnings() {
+    return acceptedStartupWarnings;
   }
 
   public Property<Boolean> getUnsafeReflection() {
