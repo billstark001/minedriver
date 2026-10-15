@@ -23,6 +23,14 @@ public final class Minecraft {
   }
 
   public static void main(String[] arguments) throws Exception {
+    if (Boolean.getBoolean("minedriver.testStartupCrash")) {
+      java.nio.file.Files.createDirectories(java.nio.file.Path.of("crash-reports"));
+      java.nio.file.Files.writeString(
+          java.nio.file.Path.of("crash-reports/crash-simulated-client.txt"),
+          "Simulated handled startup crash");
+      Thread.sleep(60_000);
+      return;
+    }
     instance = new Minecraft();
     instance.gui.setScreen(new TitleScreen());
     while (instance.running) {

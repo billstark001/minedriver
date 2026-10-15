@@ -37,6 +37,7 @@ public final class MineDriverAgent {
       if (file == null)
         throw new IllegalArgumentException("Pass -javaagent:agent.jar=absolute/config.json");
       AgentConfig config = AgentConfig.read(Path.of(file));
+      long startedMillis = System.currentTimeMillis();
       Files.createDirectories(config.output());
       FileChannel channel =
           FileChannel.open(
@@ -129,7 +130,17 @@ public final class MineDriverAgent {
                                   config.timeoutMillis() == 0 ? 300_000 : config.timeoutMillis())
                               .toNanos();
                   Object minecraft = null;
+                  long nextCrashCheck = System.nanoTime();
                   while (minecraft == null) {
+                    if (System.nanoTime() >= nextCrashCheck) {
+                      Path crash = StartupCrashReports.find(config.runDirectory(), startedMillis);
+                      if (crash != null)
+                        throw new DriverException(
+                            "STARTUP_CRASH",
+                            "Native client crash report before the first completed frame: "
+                                + crash);
+                      nextCrashCheck = System.nanoTime() + Duration.ofMillis(500).toNanos();
+                    }
                     if (frames.failure() != null)
                       throw new DriverException(
                           "UNSUPPORTED_API", "Frame hook failed: " + frames.failure());
