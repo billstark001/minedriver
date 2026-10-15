@@ -61,6 +61,10 @@ Selectors accept any combination of `key`, `label`, `type`, `path`, `stableId`, 
 
 Wait, render, screenshot, resource reload, world creation/fixture/disconnect/connect operations accept `timeoutMillis` (1–3,600,000). Default operation timeout is 30 seconds. Check session timeout defaults to 300 seconds. Some multi-stage operations have separate waits; the overall session watchdog bounds checks. `onClient`/`onServer` actions already running cannot safely be preempted after a timeout; queued actions cancelled before starting are skipped.
 
+Startup is ready only at the title screen after overlays finish. NeoForge loading issues fail promptly and are recorded in `startup.warnings`, with the usual failure UI tree and screenshot. To accept a diagnosed warning, configure `mineDriver.acceptedStartupWarnings.add('modId:exact translationKey')`; keys can be literal templates in NeoForge's native issue model. The affected mod and key must both match, every issue must be a warning, and every warning must be accepted. Unknown warnings and fatal errors block execution. A successful warning acceptance does not establish gameplay readiness or a passing scenario.
+
+Before the first completed frame, the agent also checks its isolated run directory for fresh `crash-*-client.txt` reports. A loader-handled crash can bypass the uncaught-exception hook and leave startup waiting; this path now fails as `STARTUP_CRASH` with the native report path. Older seeded reports are ignored. A pre-frame crash has no rendered UI to capture.
+
 Keyboard/mouse symbolic names resolve `InputConstants` in the actual game version. Prefer `ESCAPE`, `RETURN`, `W`, `F3`, `LEFT`, `RIGHT`, `MIDDLE`. Raw integer codes are version-dependent: 26.2 uses GLFW, while 26.3 uses SDL. These are native game callbacks, not OS input injection; arbitrary GUI input is not a substitute for server-state assertions.
 
 Artifact names are simple ASCII basenames without path separators or `..`. Files remain under the session's output directory. Reusing a name replaces that artifact; choose unique names for captures you want to keep. Screenshot comparison paths refer to local files, with relative paths resolved against the isolated process working directory.
@@ -77,6 +81,8 @@ Artifact names are simple ASCII basenames without path separators or `..`. Files
 ```
 
 Inventory fixtures address hotbar slots 0–8. Snapshots can read all 36 main inventory slots. Position is applied using server teleport; wait/assert client effects where needed. Block/item IDs are explicit namespaced identifiers; blocks may include simple state properties. The native command parser enforces the runtime's rules.
+
+World creation and connection wait for a player, level, and dismissal of both the loading screen and resource overlay before returning. A player/level alone does not establish gameplay input readiness: a shortcut sent while the loading screen is still open can be ignored. A later resource reload or screen transition still needs its own state assertion.
 
 ```json
 {

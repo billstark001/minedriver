@@ -70,6 +70,7 @@ For a failure, inspect this run's `result.json` failure and step trace, `report.
 | Evidence | Next action |
 | --- | --- |
 | Missing/stale report or connection refused | Check the original Gradle process, exact task path, run ID and startup log; restart a stale bridge for the new session. |
+| `STARTUP_WARNINGS` / `STARTUP_ERRORS` | Inspect `startup.warnings`, `failure-ui.json`, screenshot and native log. Diagnose before adding exact `modId:translationKey` entries to `acceptedStartupWarnings`; extra warnings and errors remain blockers. Do not infer readiness from mod/audio initialization. |
 | Startup/mod loading failure | Fix the identified dependency or loader configuration in the requested project. Do not broadly disable test mods or accept warnings as a substitute. |
 | `WIDGET_NOT_FOUND`, `AMBIGUOUS_WIDGET`, `WIDGET_DISABLED` | Inspect screen/overlay and tree; refine a selector or wait for expected readiness. |
 | `INPUT_NOT_CONSUMED`, `INPUT_OUTSIDE_VIEWPORT` | Check GUI coordinates, focus, scroll clipping and current screen; inspect the actual effect. |

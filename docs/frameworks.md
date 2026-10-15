@@ -60,7 +60,7 @@ Use your existing tested mod and native test dependencies in a real project. Reg
 .\gradlew.bat -p integration/neoforge-tests mineDriverFrameworkCheck
 ```
 
-One native test passes in the recorded run. NeoForge GameTest server tasks and its ephemeral-server/JUnit extensions can use the same exact-report mechanism once configured using the native framework. They are not separately executed by this snapshot's integration fixture.
+One native test passes in the recorded run. NeoForge GameTest server tasks and its ephemeral-server/JUnit extensions can use the same exact-report mechanism once configured using the native framework. They are not separately executed by the recorded integration fixture.
 
 ## Report contract
 

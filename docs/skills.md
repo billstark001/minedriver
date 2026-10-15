@@ -64,7 +64,7 @@ The skill routes these tasks to [session operations](../.agents/skills/minedrive
 
 ## Runtime prerequisites
 
-Use the [project setup](../README.md#add-to-a-mod-project) for the Gradle plugin. Building this snapshot uses JDK 25; client runs need native loader assets and a display/graphics environment. The verified game adapters cover Minecraft 26.2/26.3; see [validation](validation.md) for the actual tested combinations.
+Use the [project setup](../README.md#add-to-a-mod-project) for the Gradle plugin. Building MineDriver uses JDK 25; client runs need native loader assets and a display/graphics environment. The verified game adapters cover Minecraft 26.2/26.3; see [validation](validation.md) for the actual tested combinations.
 
 For interactive work, start the consuming project's `mineDriverRun`, then use the installed CLI or a host-configured MCP stdio bridge. Build the CLI with `./gradlew :cli:installDist` from the MineDriver checkout; its executable is `cli/build/install/minedriver/bin/minedriver` (`minedriver.bat` on Windows).
 
