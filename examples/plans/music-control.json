@@ -1,7 +1,7 @@
 {
   "steps": [
     {"command":"ui.settings","parameters":{"modId":"music_control"}},
-    {"command":"ui.tree"},
+    {"command":"ui.snapshot"},
     {"command":"screenshot.capture","parameters":{"name":"settings-en"}},
     {"command":"input.key","parameters":{"key":"ESCAPE"}},
     {"command":"resources.language","parameters":{"code":"zh_cn"}},

@@ -20,6 +20,46 @@ import org.junit.jupiter.api.io.TempDir;
 class CoreTest {
   @TempDir Path temporary;
 
+  @Test
+  void statusRpcRemainsAvailableWhenFourOtherRequestsAreWaiting() throws Exception {
+    var registry = new CommandRegistry();
+    var release = new java.util.concurrent.CountDownLatch(1);
+    var entered = new java.util.concurrent.CountDownLatch(1);
+    registry.register(
+        "custom.block",
+        "block",
+        false,
+        "test",
+        p -> {
+          entered.countDown();
+          release.await(10, java.util.concurrent.TimeUnit.SECONDS);
+          return true;
+        });
+    registry.register("agent.status", "status", true, "read", p -> Map.of("state", "READY"));
+    var callers = java.util.concurrent.Executors.newFixedThreadPool(4);
+    try (var server = new RpcServer(registry, "busy-status")) {
+      var rpc = new RpcClient(server.connection(), Duration.ofSeconds(10));
+      var requests = new java.util.ArrayList<java.util.concurrent.Future<?>>();
+      for (int i = 0; i < 4; i++)
+        requests.add(callers.submit(() -> rpc.call("custom.block", Map.of())));
+      assertTrue(entered.await(2, java.util.concurrent.TimeUnit.SECONDS));
+      long deadline = System.nanoTime() + Duration.ofSeconds(3).toNanos();
+      while (registry.queuedActions() < 3 && System.nanoTime() < deadline) Thread.sleep(5);
+      assertEquals(3, registry.queuedActions());
+      assertEquals(
+          "READY",
+          rpc.call("agent.status", Map.of(), Duration.ofSeconds(2))
+              .getAsJsonObject()
+              .get("state")
+              .getAsString());
+      release.countDown();
+      for (var request : requests) request.get(3, java.util.concurrent.TimeUnit.SECONDS);
+    } finally {
+      release.countDown();
+      callers.shutdownNow();
+    }
+  }
+
   public static final class Overloaded {
     public String value(Number value) {
       return "number";

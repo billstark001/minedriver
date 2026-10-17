@@ -16,11 +16,14 @@ final class RuntimeObserver implements AutoCloseable {
   private final AgentConfig config;
   private final FrameTransformer frames;
   private final long startedMillis = System.currentTimeMillis();
+  private final long startupDeadline;
   private volatile Map<String, Object> sample = Map.of();
   private volatile String state = "STARTING";
   private volatile String phase = "BOOTSTRAP";
   private volatile String waitingFor = "first completed client frame";
   private volatile String error;
+  private volatile String observationError;
+  private volatile Map<String, Object> lastFailure;
   private volatile long sampledNanos;
   private volatile long frameChangedNanos = System.nanoTime();
   private volatile long lastFrame;
@@ -28,10 +31,15 @@ final class RuntimeObserver implements AutoCloseable {
   private volatile boolean closed;
   private GameRuntime game;
   private RunReport report;
+  private Object proceededWarningScreen;
 
   RuntimeObserver(AgentConfig config, FrameTransformer frames) {
     this.config = config;
     this.frames = frames;
+    startupDeadline =
+        System.nanoTime()
+            + Duration.ofMillis(config.timeoutMillis() == 0 ? 300_000 : config.timeoutMillis())
+                .toNanos();
   }
 
   void bind(GameRuntime runtime) {
@@ -45,6 +53,8 @@ final class RuntimeObserver implements AutoCloseable {
     result.put("phase", phase);
     result.put("waitingFor", waitingFor);
     result.put("error", error);
+    result.put("observationError", observationError);
+    result.put("lastFailure", lastFailure);
     result.put(
         "snapshotAgeMillis",
         sampledNanos == 0 ? null : (System.nanoTime() - sampledNanos) / 1_000_000);
@@ -57,8 +67,7 @@ final class RuntimeObserver implements AutoCloseable {
   }
 
   Object awaitClient(Instrumentation instrumentation) throws java.io.IOException {
-    Duration timeout =
-        Duration.ofMillis(config.timeoutMillis() == 0 ? 300_000 : config.timeoutMillis());
+    Duration timeout = startupRemaining();
     OperationDeadline budget = OperationDeadline.enter(timeout);
     waitDeadline = System.nanoTime() + OperationDeadline.remaining(timeout).toNanos();
     try {
@@ -75,8 +84,10 @@ final class RuntimeObserver implements AutoCloseable {
         if (FrameClock.count() > 0) {
           // Never initialize Minecraft from the observer before the game completes initialization.
           for (Class<?> type : instrumentation.getAllLoadedClasses())
-            if (type.getName().equals("net.minecraft.client.Minecraft"))
-              return Reflect.call(type, "getInstance");
+            if (type.getName().equals("net.minecraft.client.Minecraft")) {
+              Object instance = Reflect.call(type, "getInstance");
+              if (instance != null) return instance;
+            }
         }
         try {
           OperationDeadline.remaining(timeout);
@@ -106,7 +117,7 @@ final class RuntimeObserver implements AutoCloseable {
                       },
                       Duration.ofMillis(500));
                 } catch (RuntimeException failure) {
-                  error = failure.toString();
+                  observationError = failure.toString();
                 }
                 try {
                   Thread.sleep(250);
@@ -123,16 +134,17 @@ final class RuntimeObserver implements AutoCloseable {
 
   Map<String, Object> observe() {
     var value = new LinkedHashMap<String, Object>();
+    game.input.expire();
     Object screen = game.screen();
     Object overlay = game.overlay();
-    boolean focused =
-        Boolean.TRUE.equals(Reflect.call(Reflect.call(game.minecraft, "getWindow"), "isFocused"));
+    boolean focused = game.focused();
     boolean inWorld = game.level() != null && game.player() != null;
     value.put("screen", screen == null ? null : screen.getClass().getName());
     value.put(
         "screenTitle", screen == null ? null : MinecraftUi.text(Reflect.call(screen, "getTitle")));
     value.put("overlay", overlay == null ? null : overlay.getClass().getName());
     value.put("focused", focused);
+    value.put("input", game.input.status());
     value.put("paused", Reflect.call(game.minecraft, "isPaused"));
     value.put("inWorld", inWorld);
     value.put("gameplayReady", gameplayReady());
@@ -141,6 +153,7 @@ final class RuntimeObserver implements AutoCloseable {
     value.put("blocker", blocker);
     sample = java.util.Collections.unmodifiableMap(value);
     sampledNanos = System.nanoTime();
+    observationError = null;
     long frame = FrameClock.count();
     if (frame != lastFrame) {
       lastFrame = frame;
@@ -172,10 +185,28 @@ final class RuntimeObserver implements AutoCloseable {
                   return false;
                 },
                 operationTimeout()),
-        Duration.ofMillis(config.timeoutMillis() == 0 ? 300_000 : config.timeoutMillis()),
+        startupRemaining(),
         "native title screen");
     state = "READY";
     phase = "TITLE_READY";
+    waitingFor = null;
+  }
+
+  private Duration startupRemaining() {
+    long remaining = startupDeadline - System.nanoTime();
+    if (remaining <= 0)
+      throw new DriverException("STARTUP_TIMEOUT", "Startup deadline expired; " + status());
+    return Duration.ofNanos(remaining);
+  }
+
+  void worldReady() {
+    phase = "WORLD_READY";
+    waitingFor = null;
+  }
+
+  void titleReady() {
+    phase = "TITLE_READY";
+    waitingFor = null;
   }
 
   private Duration operationTimeout() {
@@ -187,14 +218,16 @@ final class RuntimeObserver implements AutoCloseable {
     if (screen == null) return;
     String name = screen.getClass().getName();
     if (name.equals("net.neoforged.neoforge.client.gui.LoadingErrorScreen")) {
-      var issues = StartupWarnings.read(game);
+      var issues = NeoForgeIssues.read(game);
       long start = System.nanoTime();
       try {
-        StartupWarnings.requireAccepted(
-            issues, config.allowStartupWarnings(), config.acceptedStartupWarnings());
-        if (game.overlay() == null) StartupWarnings.proceed(game);
-        if (report != null)
-          report.step("startup.warnings", "startup", System.nanoTime() - start, issues, null);
+        NeoForgeIssues.requireAccepted(issues, config.acceptedStartupWarnings());
+        if (game.overlay() == null && proceededWarningScreen != screen) {
+          NeoForgeIssues.proceed(game);
+          proceededWarningScreen = screen;
+          if (report != null)
+            report.step("startup.warnings", "startup", System.nanoTime() - start, issues, null);
+        }
       } catch (RuntimeException failure) {
         if (report != null)
           report.step("startup.warnings", "startup", System.nanoTime() - start, issues, failure);
@@ -222,12 +255,20 @@ final class RuntimeObserver implements AutoCloseable {
               return null;
             },
             OperationDeadline.remaining(operationTimeout()));
-        if (condition.getAsBoolean()) return;
+        if (condition.getAsBoolean()) {
+          error = null;
+          return;
+        }
         OperationDeadline.remaining(timeout);
         GameRuntime.pause();
       }
     } catch (DriverException failure) {
       error = failure.toString();
+      var evidence = new LinkedHashMap<String, Object>(sample);
+      evidence.put("phase", phase);
+      evidence.put("waitingFor", waitingFor);
+      evidence.put("code", failure.code());
+      lastFailure = java.util.Collections.unmodifiableMap(evidence);
       if (failure.code().equals("OPERATION_TIMEOUT"))
         throw new DriverException(
             "CONDITION_TIMEOUT", "Timed out waiting for " + description + "; " + status(), failure);

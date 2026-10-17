@@ -63,13 +63,16 @@ public abstract class MineDriverRun extends JavaExec {
   public abstract Property<Boolean> getAllowUnsupportedRuntime();
 
   @Input
-  public abstract Property<Boolean> getAllowStartupWarnings();
-
-  @Input
   public abstract ListProperty<String> getAcceptedStartupWarnings();
 
   @Input
   public abstract Property<Boolean> getUnsafeReflection();
+
+  @Input
+  public abstract Property<Boolean> getInputIsolation();
+
+  @Input
+  public abstract Property<Boolean> getBackgroundExecution();
 
   @InputFiles
   @PathSensitive(PathSensitivity.RELATIVE)
@@ -109,9 +112,10 @@ public abstract class MineDriverRun extends JavaExec {
       config.put("operationTimeoutMillis", getOperationTimeoutMillis().get());
       config.put("allowProduction", getAllowProduction().get());
       config.put("allowUnsupportedRuntime", getAllowUnsupportedRuntime().get());
-      config.put("allowStartupWarnings", getAllowStartupWarnings().get());
       config.put("acceptedStartupWarnings", getAcceptedStartupWarnings().get());
       config.put("unsafeReflection", getUnsafeReflection().get());
+      config.put("inputIsolation", getInputIsolation().get());
+      config.put("backgroundExecution", getBackgroundExecution().get());
       config.put("scenarios", getScenarios().get());
       config.put("extensions", getExtensionClasses().get());
       config.put(

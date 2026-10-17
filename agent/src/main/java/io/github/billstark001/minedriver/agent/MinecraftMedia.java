@@ -26,8 +26,10 @@ final class MinecraftMedia {
     Files.createDirectories(file.getParent());
     Files.deleteIfExists(file); // A failed callback must never validate an older capture.
     var completed = new CompletableFuture<Object>();
+    var capturedUi = new java.util.concurrent.atomic.AtomicReference<Map<String, Object>>();
     game.client(
         () -> {
+          capturedUi.set(game.ui.snapshot(8192));
           Object renderer = Reflect.field(game.minecraft, "gameRenderer");
           Object target =
               Reflect.hasMethod(renderer, "mainRenderTarget", 0)
@@ -44,11 +46,13 @@ final class MinecraftMedia {
           return null;
         },
         timeout);
-    completed.get(timeout.toMillis(), TimeUnit.MILLISECONDS);
+    completed.get(OperationDeadline.remaining(timeout).toNanos(), TimeUnit.NANOSECONDS);
     var image = ImageIO.read(file.toFile());
     if (image == null)
       throw new DriverException(
           "SCREENSHOT_FAILED", "Screenshot callback did not produce a valid PNG: " + file);
+    Path uiFile = file.resolveSibling(name + ".ui.json");
+    io.github.billstark001.minedriver.protocol.Json.write(uiFile, capturedUi.get());
     return Map.of(
         "path",
         file.toString(),
@@ -56,7 +60,11 @@ final class MinecraftMedia {
         image.getWidth(),
         "height",
         image.getHeight(),
-        "frame",
+        "uiSnapshot",
+        uiFile.toString(),
+        "requestedAfterFrame",
+        capturedUi.get().get("frame"),
+        "completedAtFrame",
         io.github.billstark001.minedriver.hooks.FrameClock.count());
   }
 
@@ -73,7 +81,7 @@ final class MinecraftMedia {
               return Reflect.call(game.minecraft, "reloadResourcePacks");
             },
             timeout);
-    ((Future<?>) future).get(timeout.toMillis(), TimeUnit.MILLISECONDS);
+    ((Future<?>) future).get(OperationDeadline.remaining(timeout).toNanos(), TimeUnit.NANOSECONDS);
     game.observer.await(
         "RESOURCE_RELOAD",
         () -> game.client(() -> game.overlay() == null, timeout),
@@ -119,21 +127,32 @@ final class MinecraftMedia {
             key,
             Parameters.integer(parameters, "scanCode", 0, 0, 65535),
             Parameters.integer(parameters, "modifiers", 0, 0, 65535));
+    String action = Parameters.string(parameters, "action", "TAP");
+    if (!java.util.List.of("TAP", "PRESS", "RELEASE").contains(action))
+      throw Parameters.invalid("Unknown key action " + action);
     game.client(
         () -> {
-          keyEvent(event, 1);
+          keyEvent(event, action.equals("RELEASE") ? 0 : 1);
           return null;
         },
         timeout);
-    try {
-      game.awaitFrames(Parameters.integer(parameters, "frames", 1, 1, 1200), timeout);
-    } finally {
-      game.client(
-          () -> {
-            keyEvent(event, 0);
-            return null;
-          },
-          timeout);
+    if (action.equals("TAP")) {
+      try {
+        game.awaitFrames(Parameters.integer(parameters, "frames", 1, 1, 1200), timeout);
+      } finally {
+        io.github.billstark001.minedriver.hooks.InputGate.key(key, false);
+        OperationDeadline cleanup = OperationDeadline.cleanup(Duration.ofSeconds(2));
+        try {
+          game.client(
+              () -> {
+                keyEvent(event, 0);
+                return null;
+              },
+              Duration.ofSeconds(2));
+        } finally {
+          cleanup.close();
+        }
+      }
     }
     return Map.of("channel", "input", "key", key);
   }
@@ -161,14 +180,22 @@ final class MinecraftMedia {
   }
 
   private void keyEvent(Object event, int action) {
-    Object keyboard = Reflect.field(game.minecraft, "keyboardHandler");
-    Reflect.callback(
-        keyboard,
-        "keyPress",
-        new Class<?>[] {long.class, int.class, event.getClass()},
-        Reflect.call(Reflect.call(game.minecraft, "getWindow"), "handle"),
-        action,
-        event);
+    java.util.concurrent.Callable<Object> dispatch =
+        () -> {
+          io.github.billstark001.minedriver.hooks.InputGate.key(
+              ((Number) Reflect.call(event, "key")).intValue(), action != 0);
+          Object keyboard = Reflect.field(game.minecraft, "keyboardHandler");
+          Reflect.callback(
+              keyboard,
+              "keyPress",
+              new Class<?>[] {long.class, int.class, event.getClass()},
+              Reflect.call(Reflect.call(game.minecraft, "getWindow"), "handle"),
+              action,
+              event);
+          return null;
+        };
+    if (action == 0) InputIsolation.dispatch(dispatch);
+    else game.input.automation(dispatch);
   }
 
   private static void setField(Object target, String name, Object value) {

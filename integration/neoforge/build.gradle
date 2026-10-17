@@ -3,6 +3,10 @@ plugins {
     id 'io.github.billstark001.minedriver'
 }
 java { toolchain.languageVersion = JavaLanguageVersion.of(25) }
+repositories { maven { url = 'https://maven.shedaniel.me/' } }
+dependencies {
+    implementation "me.shedaniel.cloth:cloth-config-neoforge:${providers.gradleProperty('clothVersion').getOrElse('26.3.159')}"
+}
 neoForge {
     version = providers.gradleProperty('neoVersion').getOrElse('26.3.0.48-beta')
     runs {
@@ -10,12 +14,21 @@ neoForge {
     }
 }
 mineDriver {
+    inputIsolation.set(providers.gradleProperty('isolation').map { it.toBoolean() }.getOrElse(true))
     plan.set(layout.projectDirectory.file(providers.gradleProperty('plan').getOrElse('../../examples/plans/title-smoke.json')))
     timeoutMillis.set(300000L)
-    allowStartupWarnings.set(true)
+    if (providers.gradleProperty('acceptedWarningsFile').isPresent()) {
+        acceptedStartupWarnings.addAll(new groovy.json.JsonSlurper().parse(file(providers.gradleProperty('acceptedWarningsFile').get())))
+    }
     extensionClasses.add('example.ScreenExtension')
     if (providers.gradleProperty('probe').getOrElse('title') == 'fixture') {
         scenarios.add('example.FixtureAssertions')
+    }
+    if (providers.gradleProperty('probe').getOrElse('title') == 'cloth') {
+        scenarios.add('example.ClothRegression')
+    }
+    if (providers.gradleProperty('probe').getOrElse('title') == 'runtime') {
+        scenarios.addAll('example.ClothRegression', 'example.InputRegression', 'example.GeometryRegression')
     }
 }
 sourceSets.minedriver.java.srcDir('../../examples/scenarios')

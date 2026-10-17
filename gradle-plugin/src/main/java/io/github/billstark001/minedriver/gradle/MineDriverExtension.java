@@ -18,9 +18,10 @@ public class MineDriverExtension {
   private final Property<Long> operationTimeoutMillis;
   private final Property<Boolean> allowProduction;
   private final Property<Boolean> allowUnsupportedRuntime;
-  private final Property<Boolean> allowStartupWarnings;
   private final ListProperty<String> acceptedStartupWarnings;
   private final Property<Boolean> unsafeReflection;
+  private final Property<Boolean> inputIsolation;
+  private final Property<Boolean> backgroundExecution;
   private final ConfigurableFileCollection seedFiles;
   private final NamedDomainObjectContainer<RunProfile> profiles;
   private final ListProperty<String> frameworkTasks;
@@ -36,9 +37,10 @@ public class MineDriverExtension {
     operationTimeoutMillis = objects.property(Long.class).convention(30_000L);
     allowProduction = objects.property(Boolean.class).convention(false);
     allowUnsupportedRuntime = objects.property(Boolean.class).convention(false);
-    allowStartupWarnings = objects.property(Boolean.class).convention(false);
     acceptedStartupWarnings = objects.listProperty(String.class).convention(java.util.List.of());
     unsafeReflection = objects.property(Boolean.class).convention(false);
+    inputIsolation = objects.property(Boolean.class).convention(true);
+    backgroundExecution = objects.property(Boolean.class).convention(true);
     seedFiles = objects.fileCollection();
     profiles =
         objects.domainObjectContainer(RunProfile.class, name -> new RunProfile(name, objects));
@@ -82,13 +84,17 @@ public class MineDriverExtension {
     return allowUnsupportedRuntime;
   }
 
-  public Property<Boolean> getAllowStartupWarnings() {
-    return allowStartupWarnings;
-  }
-
   /** Exact {@code modId:translationKey} pairs; errors and unmatched warnings always block. */
   public ListProperty<String> getAcceptedStartupWarnings() {
     return acceptedStartupWarnings;
+  }
+
+  public Property<Boolean> getInputIsolation() {
+    return inputIsolation;
+  }
+
+  public Property<Boolean> getBackgroundExecution() {
+    return backgroundExecution;
   }
 
   public Property<Boolean> getUnsafeReflection() {

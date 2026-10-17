@@ -19,8 +19,19 @@ final class BootstrapHooks {
     instrumentation.appendToBootstrapClassLoaderSearch(new JarFile(jar.toFile()));
     var transformer = new FrameTransformer();
     instrumentation.addTransformer(transformer, true);
+    instrumentation.addTransformer(new InputTransformer(), true);
+    instrumentation.addTransformer(new VisualTransformer(), true);
     for (Class<?> type : instrumentation.getAllLoadedClasses()) {
-      if (type.getName().equals("net.minecraft.client.Minecraft")) {
+      if (java.util.Set.of(
+              "net.minecraft.client.Minecraft",
+              "net.minecraft.client.KeyboardHandler",
+              "net.minecraft.client.MouseHandler",
+              "com.mojang.blaze3d.platform.InputConstants",
+              "com.mojang.blaze3d.platform.Window",
+              "com.mojang.blaze3d.platform.SDLEventHandler",
+              "net.minecraft.client.renderer.state.gui.GuiTextRenderState",
+              "net.minecraft.client.renderer.state.gui.GuiItemRenderState")
+          .contains(type.getName())) {
         try {
           instrumentation.retransformClasses(type);
         } catch (java.lang.instrument.UnmodifiableClassException error) {

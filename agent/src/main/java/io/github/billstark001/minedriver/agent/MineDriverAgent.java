@@ -68,6 +68,8 @@ public final class MineDriverAgent {
         throw failure;
       }
       var commands = new CommandRegistry();
+      if (config.inputIsolation())
+        io.github.billstark001.minedriver.hooks.InputGate.isolation(true);
       commands.report(report);
       var observer = new RuntimeObserver(config, frames);
       commands.timeout(Duration.ofMillis(config.operationTimeoutMillis()));
@@ -135,8 +137,8 @@ public final class MineDriverAgent {
                 try {
                   Object minecraft = observer.awaitClient(instrumentation);
                   game = new GameRuntime(minecraft, config, frames, observer);
+                  observer.attach(game, report);
                   try (var session = new DriverSession(config, game, commands, report)) {
-                    observer.attach(game, report);
                     observer.awaitTitle();
                     if (config.mode().equals("check"))
                       session.run(config.plan(), config.scenarios());
@@ -150,6 +152,7 @@ public final class MineDriverAgent {
                   failure = error;
                   observer.finish(error);
                 } finally {
+                  io.github.billstark001.minedriver.hooks.InputGate.isolation(false);
                   filesystem.capture("agent-finish", config.output(), config.runDirectory());
                   filesystem.write();
                   if (failure != null && game != null) {
@@ -157,7 +160,7 @@ public final class MineDriverAgent {
                     try {
                       Json.write(
                           config.output().resolve("failure-ui.json"),
-                          captured.client(() -> captured.ui.tree(8192), Duration.ofSeconds(3)));
+                          captured.client(() -> captured.ui.snapshot(8192), Duration.ofSeconds(3)));
                     } catch (Exception capture) {
                       failure.addSuppressed(capture);
                     }

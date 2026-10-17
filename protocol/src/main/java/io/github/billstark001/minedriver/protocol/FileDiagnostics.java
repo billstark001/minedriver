@@ -35,7 +35,7 @@ public final class FileDiagnostics {
         // The child inherits this process's primary token. No paths, secrets or user text enter the
         // script.
         String script =
-            "$i=[Security.Principal.WindowsIdentity]::GetCurrent(); "
+            "[Console]::OutputEncoding=[Text.UTF8Encoding]::new($false); $i=[Security.Principal.WindowsIdentity]::GetCurrent(); "
                 + "$p=[Security.Principal.WindowsPrincipal]::new($i); "
                 + "@{userSid=$i.User.Value;defaultOwnerSid=$i.Owner.Value;name=$i.Name;"
                 + "administratorEnabled=$p.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)}"
@@ -68,6 +68,7 @@ public final class FileDiagnostics {
 
   public synchronized void capture(String stage, Path... paths) {
     for (Path input : paths) {
+      if (input == null) continue;
       Path path = input.toAbsolutePath().normalize();
       var observation = new LinkedHashMap<String, Object>();
       observation.put("stage", stage);

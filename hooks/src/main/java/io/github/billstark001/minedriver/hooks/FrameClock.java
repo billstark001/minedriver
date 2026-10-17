@@ -19,12 +19,14 @@ public final class FrameClock {
   private FrameClock() {}
 
   public static void begin() {
+    VisualHooks.begin();
     started = System.nanoTime();
   }
 
   public static void end() {
     long start = started;
     long sequence = COUNT.get() + 1;
+    VisualHooks.end(sequence);
     int index = (int) (sequence % CAPACITY);
     SEQUENCE.set(index, 0);
     START.set(index, start);

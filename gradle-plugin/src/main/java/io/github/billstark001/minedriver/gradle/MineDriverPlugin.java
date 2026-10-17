@@ -176,9 +176,14 @@ public final class MineDriverPlugin implements Plugin<Project> {
               task.getOperationTimeoutMillis().set(extension.getOperationTimeoutMillis());
               task.getAllowProduction().set(extension.getAllowProduction());
               task.getAllowUnsupportedRuntime().set(extension.getAllowUnsupportedRuntime());
-              task.getAllowStartupWarnings().set(extension.getAllowStartupWarnings());
               task.getAcceptedStartupWarnings().set(extension.getAcceptedStartupWarnings());
               task.getUnsafeReflection().set(extension.getUnsafeReflection());
+              task.getInputIsolation()
+                  .set(
+                      mode.equals("interactive")
+                          ? project.provider(() -> false)
+                          : extension.getInputIsolation());
+              task.getBackgroundExecution().set(extension.getBackgroundExecution());
               task.getScenarioClasspath().from(scenarios.getRuntimeClasspath());
               task.getSeedFiles().from(extension.getSeedFiles());
               task.getSessionRoot()

@@ -9,15 +9,23 @@ final class OperationDeadline implements AutoCloseable {
   private final Long previous;
 
   private OperationDeadline(Duration timeout) {
+    this(timeout, false);
+  }
+
+  private OperationDeadline(Duration timeout, boolean independent) {
     if (timeout.isZero() || timeout.isNegative())
       throw Parameters.invalid("Timeout must be positive");
     previous = CURRENT.get();
     long requested = System.nanoTime() + timeout.toNanos();
-    CURRENT.set(previous == null ? requested : Math.min(previous, requested));
+    CURRENT.set(independent || previous == null ? requested : Math.min(previous, requested));
   }
 
   static OperationDeadline enter(Duration timeout) {
     return new OperationDeadline(timeout);
+  }
+
+  static OperationDeadline cleanup(Duration timeout) {
+    return new OperationDeadline(timeout, true);
   }
 
   static Duration remaining(Duration maximum) {

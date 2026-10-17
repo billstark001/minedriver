@@ -30,6 +30,10 @@ final class CommandRegistry {
     timeout = value;
   }
 
+  int queuedActions() {
+    return actions.getQueueLength();
+  }
+
   void report(RunReport value) {
     report = value;
   }
@@ -56,7 +60,12 @@ final class CommandRegistry {
       entry = commands.get(name);
     }
     boolean lock =
-        !List.of("agent.status", "scenario.status", "session.commands", "session.close")
+        !List.of(
+                "agent.status",
+                "scenario.status",
+                "session.commands",
+                "session.close",
+                "input.isolation.status")
             .contains(name);
     long started = System.nanoTime();
     OperationDeadline budget =

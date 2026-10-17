@@ -60,9 +60,9 @@ public class Screen {
     }
   }
 
-  private final List<Button> children;
+  private final List<?> children;
 
-  public Screen(List<Button> children) {
+  public Screen(List<?> children) {
     this.children = children;
   }
 
@@ -70,7 +70,7 @@ public class Screen {
     return new Component("Test screen");
   }
 
-  public List<Button> children() {
+  public List<?> children() {
     return children;
   }
 
@@ -78,7 +78,10 @@ public class Screen {
 
   public boolean mouseClicked(MouseButtonEvent event, boolean twice) {
     if (children.isEmpty()) return false;
-    children.get(0).onPress(new net.minecraft.client.input.KeyEvent(257, 0, 0));
+    if (children.get(0)
+        instanceof me.shedaniel.clothconfig2.gui.entries.SubCategoryListEntry category)
+      return category.mouseClicked(event, twice);
+    ((Button) children.get(0)).onPress(new net.minecraft.client.input.KeyEvent(257, 0, 0));
     return true;
   }
 

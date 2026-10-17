@@ -158,6 +158,22 @@ final class Reflect {
     }
   }
 
+  static void set(Object object, String name, Object value) {
+    for (Class<?> type = object.getClass(); type != null; type = type.getSuperclass()) {
+      try {
+        var field = type.getDeclaredField(name);
+        if (!field.trySetAccessible()) break;
+        field.set(object, value);
+        return;
+      } catch (NoSuchFieldException absent) {
+        // The supported native field may be inherited.
+      } catch (IllegalAccessException failure) {
+        throw new DriverException("UNSUPPORTED_API", "Cannot set native field " + name, failure);
+      }
+    }
+    throw new DriverException("UNSUPPORTED_API", "Native field unavailable: " + name);
+  }
+
   static RuntimeException propagate(Throwable error) {
     if (error instanceof RuntimeException runtime) return runtime;
     if (error instanceof Error fatal) throw fatal;

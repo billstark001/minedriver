@@ -37,21 +37,7 @@ public final class ProbeContext {
   }
 
   public void await(String description, Duration timeout, BooleanSupplier condition) {
-    if (driver.isGameThread())
-      throw new DriverException("BAD_THREAD", "Do not wait on a game thread");
-    if (timeout.isNegative() || timeout.isZero())
-      throw new IllegalArgumentException("Positive timeout required");
-    long deadline = System.nanoTime() + timeout.toNanos();
-    while (!condition.getAsBoolean()) {
-      if (System.nanoTime() >= deadline)
-        throw new DriverException("TIMEOUT", "Timed out waiting for " + description);
-      try {
-        Thread.sleep(50);
-      } catch (InterruptedException interrupted) {
-        Thread.currentThread().interrupt();
-        throw new DriverException("CANCELLED", "Waiting interrupted: " + description, interrupted);
-      }
-    }
+    driver.await(description, timeout, condition);
   }
 
   public void require(boolean condition, String message) {

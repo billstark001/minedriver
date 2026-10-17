@@ -17,6 +17,106 @@ class ObserverTest {
   @TempDir Path directory;
 
   @Test
+  void focusUsesNativeFlagsRatherThanTheClientsInitialCachedValue() throws Exception {
+    Path file = directory.resolve("focus.json");
+    Json.write(
+        file,
+        Map.of(
+            "protocol",
+            1,
+            "runId",
+            "focus",
+            "outputDirectory",
+            directory.toString(),
+            "allowProduction",
+            true));
+    var config = AgentConfig.read(file);
+    var frames = new FrameTransformer();
+    var minecraft = new net.minecraft.client.Minecraft();
+    var game = new GameRuntime(minecraft, config, frames, new RuntimeObserver(config, frames));
+    org.lwjgl.sdl.SDLVideo.flags = 0;
+    try {
+      assertTrue(minecraft.getWindow().isFocused());
+      assertFalse(game.focused());
+      assertFalse((Boolean) game.observer.observe().get("focused"));
+      assertEquals(
+          "FOCUS_LOST",
+          assertThrows(DriverException.class, () -> game.input.automation(() -> true)).code());
+    } finally {
+      org.lwjgl.sdl.SDLVideo.flags = org.lwjgl.sdl.SDLVideo.SDL_WINDOW_INPUT_FOCUS;
+    }
+  }
+
+  @Test
+  void missingIsolationHooksFailAndRestoreBackgroundOptions() throws Exception {
+    Path file = directory.resolve("unsupported-input.json");
+    Json.write(
+        file,
+        Map.of(
+            "protocol",
+            1,
+            "runId",
+            "unsupported-input",
+            "outputDirectory",
+            directory.toString(),
+            "allowProduction",
+            true,
+            "inputIsolation",
+            true,
+            "backgroundExecution",
+            true));
+    var config = AgentConfig.read(file);
+    var frames = new FrameTransformer();
+    var minecraft = new net.minecraft.client.Minecraft();
+    var game = new GameRuntime(minecraft, config, frames, new RuntimeObserver(config, frames));
+    assertEquals(
+        "INPUT_ISOLATION_UNAVAILABLE",
+        assertThrows(DriverException.class, game.input::configure).code());
+    assertTrue(minecraft.options.pauseOnLostFocus);
+    assertFalse(io.github.billstark001.minedriver.hooks.InputGate.isolated());
+  }
+
+  @Test
+  void loadingWarningsFailEvenWhenAnOverlayIsStillPresent() throws Exception {
+    Path file = directory.resolve("warning.json");
+    Json.write(
+        file,
+        Map.of(
+            "protocol",
+            1,
+            "runId",
+            "warning",
+            "outputDirectory",
+            directory.toString(),
+            "allowProduction",
+            true));
+    var config = AgentConfig.read(file);
+    var frames = new FrameTransformer();
+    var observer = new RuntimeObserver(config, frames);
+    var minecraft = new net.minecraft.client.Minecraft();
+    new GameRuntime(minecraft, config, frames, observer);
+    minecraft.gui.setScreen(new net.neoforged.neoforge.client.gui.LoadingErrorScreen());
+    minecraft.gui.currentOverlay = new Object();
+    net.neoforged.fml.ModLoader.issues =
+        java.util.List.of(
+            new net.neoforged.fml.ModLoader.Issue(
+                "WARNING", new net.neoforged.fml.ModLoader.Mod("fixture"), "unknown.warning"));
+    try {
+      assertEquals(
+          "STARTUP_WARNINGS",
+          assertThrows(
+                  DriverException.class,
+                  () ->
+                      observer.await("WAITING_TITLE", () -> false, Duration.ofSeconds(1), "title"))
+              .code());
+      assertEquals("OVERLAY", observer.status().get("blocker"));
+      assertNotNull(observer.status().get("lastFailure"));
+    } finally {
+      net.neoforged.fml.ModLoader.issues = java.util.List.of();
+    }
+  }
+
+  @Test
   void unknownScreenTimesOutWithLastScreenAndOverlay() throws Exception {
     Path path = directory.resolve("config.json");
     Json.write(

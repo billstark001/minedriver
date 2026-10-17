@@ -24,7 +24,7 @@ class PluginFunctionalTest {
         classpath = files('%s')
         mainClass = 'net.minecraft.client.Minecraft'
       }
-      mineDriver {
+      mineDriver { inputIsolation.set(false);
         plan.set(layout.projectDirectory.file('plan.json'))
         allowProduction.set(true)
         timeoutMillis.set(15000L)
@@ -202,7 +202,7 @@ class PluginFunctionalTest {
           report.get().asFile.text = '<testsuite><testcase name="native">' + skipped + '</testcase></testsuite>'
         }
       }
-      mineDriver {
+      mineDriver { inputIsolation.set(false);
         frameworkTasks.add('nativeTest')
         frameworkReports.from(layout.buildDirectory.file('native.xml'))
         extensionClasses.set([])

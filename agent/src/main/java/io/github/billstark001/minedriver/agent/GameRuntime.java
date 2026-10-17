@@ -22,6 +22,8 @@ final class GameRuntime {
   final MinecraftWorld world;
   final MinecraftMedia media;
   final RuntimeObserver observer;
+  final InputIsolation input;
+  final VisualCapture visuals;
   private final Map<String, Object> environment;
 
   GameRuntime(
@@ -45,6 +47,8 @@ final class GameRuntime {
     world = new MinecraftWorld(this);
     media = new MinecraftMedia(this);
     observer.bind(this);
+    input = new InputIsolation(this);
+    visuals = new VisualCapture(this);
   }
 
   Class<?> type(String name) {
@@ -79,6 +83,29 @@ final class GameRuntime {
     return Reflect.call(minecraft, "getSingleplayerServer");
   }
 
+  boolean focused() {
+    long handle =
+        ((Number) Reflect.call(Reflect.call(minecraft, "getWindow"), "handle")).longValue();
+    if (environment.get("minecraft").equals("26.3")) {
+      Class<?> video = type("org.lwjgl.sdl.SDLVideo");
+      long flags = ((Number) Reflect.call(video, "SDL_GetWindowFlags", handle)).longValue();
+      long inputFocus = ((Number) Reflect.field(video, "SDL_WINDOW_INPUT_FOCUS")).longValue();
+      return (flags & inputFocus) != 0;
+    }
+    Class<?> glfw = type("org.lwjgl.glfw.GLFW");
+    // GLFW may retain its focus flag when a window is hidden without a focus callback.
+    if (((Number)
+                Reflect.call(
+                    glfw, "glfwGetWindowAttrib", handle, Reflect.field(glfw, "GLFW_VISIBLE")))
+            .intValue()
+        == 0) return false;
+    return ((Number)
+                Reflect.call(
+                    glfw, "glfwGetWindowAttrib", handle, Reflect.field(glfw, "GLFW_FOCUSED")))
+            .intValue()
+        != 0;
+  }
+
   boolean onGameThread() {
     return Boolean.TRUE.equals(Reflect.call(minecraft, "isSameThread"));
   }
@@ -106,15 +133,16 @@ final class GameRuntime {
       }
     }
     long dispatchDeadline = System.nanoTime() + remaining.toNanos();
-    var started = new java.util.concurrent.atomic.AtomicBoolean();
+    var dispatchState =
+        new java.util.concurrent.atomic.AtomicInteger(); // queued=0, running=1, cancelled=2
     var future = new CompletableFuture<T>();
     Reflect.call(
         executor,
         "execute",
         (Runnable)
             () -> {
-              if (future.isCancelled() || System.nanoTime() >= dispatchDeadline) return;
-              started.set(true);
+              if (System.nanoTime() >= dispatchDeadline || !dispatchState.compareAndSet(0, 1))
+                return;
               try {
                 future.complete(action.call());
               } catch (Throwable error) {
@@ -124,15 +152,17 @@ final class GameRuntime {
     try {
       return future.get(remaining.toNanos(), TimeUnit.NANOSECONDS);
     } catch (TimeoutException error) {
+      dispatchState.compareAndSet(0, 2);
       future.cancel(false);
       throw new DriverException(
           "GAME_THREAD_TIMEOUT",
           "Game thread deadline expired; actionStarted="
-              + started.get()
+              + (dispatchState.get() == 1)
               + "; outcome="
-              + (started.get() ? "UNKNOWN (do not blindly retry)" : "NOT_STARTED"),
+              + (dispatchState.get() == 1 ? "UNKNOWN (do not blindly retry)" : "NOT_STARTED"),
           error);
     } catch (InterruptedException error) {
+      dispatchState.compareAndSet(0, 2);
       future.cancel(false);
       Thread.currentThread().interrupt();
       throw new DriverException("CANCELLED", "Game operation interrupted", error);

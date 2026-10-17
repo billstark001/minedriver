@@ -72,6 +72,7 @@ final class MinecraftWorld {
         () -> game.client(game.observer::gameplayReady, timeout),
         timeout,
         "world ready");
+    game.observer.worldReady();
     return game.client(game::inspect, timeout);
   }
 
@@ -155,13 +156,14 @@ final class MinecraftWorld {
         },
         timeout);
     game.observer.await(
-        "WORLD_LOADING",
+        "WORLD_DISCONNECTING",
         () ->
             game.client(() -> game.level() == null && game.server() == null, timeout)
                 && (server == null || Boolean.TRUE.equals(Reflect.call(server, "isStopped"))),
         timeout,
         "world disconnect");
     game.awaitFrames(2, timeout);
+    game.observer.titleReady();
     return true;
   }
 

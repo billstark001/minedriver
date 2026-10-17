@@ -12,11 +12,17 @@ public final class CommandSchemas {
     var properties = new LinkedHashMap<String, Object>();
     List<String> required = List.of();
     switch (command) {
-      case "ui.tree" -> properties.put("limit", integer(1, 8192));
+      case "ui.snapshot" -> {
+        properties.put("limit", integer(1, 8192));
+        properties.put("name", artifact());
+      }
       case "ui.activate", "input.click", "assert.widget", "wait.widget" -> {
         properties.put("selector", selector());
         if (!command.equals("input.click")) required = List.of("selector");
         else {
+          properties.put("part", Map.of("type", "string", "enum", List.of("hit", "header")));
+          properties.put("screenId", string());
+          properties.put("slot", integer(0, 8191));
           properties.put("x", number());
           properties.put("y", number());
           properties.put(
@@ -33,6 +39,11 @@ public final class CommandSchemas {
           properties.put("modifiers", integer(0, 65535));
         }
       }
+      case "ui.expand" -> {
+        properties.put("selector", selector());
+        properties.put("expanded", bool());
+        required = List.of("selector", "expanded");
+      }
       case "ui.text" -> {
         properties.put("selector", selector());
         properties.put("value", string());
@@ -42,7 +53,15 @@ public final class CommandSchemas {
         properties.put("modId", string());
         properties.put("configClass", string());
       }
+      case "input.isolation.acquire" -> properties.put("ttlMillis", integer(100, 3_600_000));
+      case "input.isolation.renew", "input.isolation.release" -> {
+        properties.put("leaseId", string());
+        required = List.of("leaseId");
+        if (command.endsWith("renew")) properties.put("ttlMillis", integer(100, 3_600_000));
+      }
       case "input.key" -> {
+        properties.put(
+            "action", Map.of("type", "string", "enum", List.of("TAP", "PRESS", "RELEASE")));
         properties.put(
             "key",
             Map.of(
@@ -165,17 +184,7 @@ public final class CommandSchemas {
           return Map.of("type", "object", "additionalProperties", true);
       }
     }
-    if (List.of(
-            "wait.state",
-            "wait.widget",
-            "render.await",
-            "screenshot.capture",
-            "resources.language",
-            "world.create",
-            "world.disconnect",
-            "world.fixture",
-            "world.connect")
-        .contains(command)) properties.put("timeoutMillis", integer(1, 3_600_000));
+    properties.put("timeoutMillis", integer(1, 3_600_000));
     return object(properties, required);
   }
 

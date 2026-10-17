@@ -74,6 +74,7 @@ final class MinecraftNetwork {
         () -> game.client(game.observer::gameplayReady, timeout),
         timeout,
         "multiplayer world");
+    game.observer.worldReady();
     return game.client(() -> inspect(game), timeout);
   }
 }

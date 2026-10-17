@@ -5,14 +5,14 @@ import java.util.List;
 import java.util.Map;
 
 /** Reads NeoForge's issue model instead of inferring severity from localized button labels. */
-final class StartupWarnings {
+final class NeoForgeIssues {
   record Issue(String severity, String modId, String key, String message) {
     String identity() {
       return modId + ":" + key;
     }
   }
 
-  private StartupWarnings() {}
+  private NeoForgeIssues() {}
 
   static List<Issue> read(GameRuntime game) {
     Object issues = Reflect.call(game.type("net.neoforged.fml.ModLoader"), "getLoadingIssues");
@@ -35,13 +35,13 @@ final class StartupWarnings {
         .toList();
   }
 
-  static void requireAccepted(List<Issue> issues, boolean allowAll, List<String> accepted) {
+  static void requireAccepted(List<Issue> issues, List<String> accepted) {
     if (issues.isEmpty())
       throw new DriverException(
           "STARTUP_BLOCKED", "Loading error screen has no inspectable issues");
     if (issues.stream().anyMatch(issue -> !issue.severity().equals("WARNING")))
       throw new DriverException("STARTUP_ERRORS", "NeoForge loading failed: " + issues);
-    if (!allowAll && issues.stream().anyMatch(issue -> !accepted.contains(issue.identity())))
+    if (issues.stream().anyMatch(issue -> !accepted.contains(issue.identity())))
       throw new DriverException(
           "STARTUP_WARNINGS",
           "Title screen blocked by loading warnings: "

@@ -18,10 +18,12 @@ final class MinecraftUi {
       boolean active,
       boolean visible,
       boolean focused,
-      int x,
-      int y,
-      int width,
-      int height,
+      String role,
+      UiGeometry.Bounds layoutBounds,
+      UiGeometry.Bounds hitBounds,
+      UiGeometry.Bounds clippedBounds,
+      String boundsSource,
+      Boolean expanded,
       Object value) {}
 
   record Live(Node node, Object widget) {}
@@ -49,7 +51,7 @@ final class MinecraftUi {
     Object screen = game.screen();
     if (screen == null) return List.of();
     var result = new ArrayList<Live>();
-    visit(screen, "0", true, true, new IdentityHashMap<>(), result, limit, 0);
+    visit(screen, "0", true, true, viewport(), new IdentityHashMap<>(), result, limit, 0);
     return result;
   }
 
@@ -58,6 +60,7 @@ final class MinecraftUi {
       String path,
       boolean parentActive,
       boolean parentVisible,
+      UiGeometry.Bounds clip,
       IdentityHashMap<Object, Boolean> visited,
       List<Live> output,
       int limit,
@@ -66,14 +69,28 @@ final class MinecraftUi {
     if (output.size() >= limit)
       throw new DriverException("UI_TREE_LIMIT", "Widget tree exceeds " + limit + " nodes");
     Object component =
-        Reflect.hasMethod(widget, "getMessage", 0) ? Reflect.call(widget, "getMessage") : null;
-    boolean active = parentActive && flag(widget, "active", "isActive", true);
-    boolean visible = parentVisible && flag(widget, "visible", null, true);
+        UiGeometry.cloth(widget) && Reflect.hasMethod(widget, "getFieldName", 0)
+            ? Reflect.call(widget, "getFieldName")
+            : Reflect.hasMethod(widget, "getMessage", 0)
+                ? Reflect.call(widget, "getMessage")
+                : null;
+    boolean active =
+        parentActive
+            && (UiGeometry.cloth(widget)
+                ? Boolean.TRUE.equals(Reflect.call(widget, "isEnabled"))
+                : flag(widget, "active", "isActive", true));
+    boolean visible =
+        parentVisible
+            && (UiGeometry.cloth(widget)
+                ? Boolean.TRUE.equals(Reflect.call(widget, "isDisplayed"))
+                : flag(widget, "visible", null, true));
+    UiGeometry.Geometry geometry = UiGeometry.geometry(widget);
+    UiGeometry.Bounds clipped = geometry.hit() == null ? null : geometry.hit().intersect(clip);
     Object value =
         Reflect.hasMethod(widget, "getValue", 0) ? Reflect.call(widget, "getValue") : null;
     if (value != null
         && !(value instanceof String || value instanceof Number || value instanceof Boolean))
-      value = value.toString();
+      value = null;
     var node =
         new Node(
             path,
@@ -84,10 +101,18 @@ final class MinecraftUi {
             active,
             visible,
             flag(widget, null, "isFocused", false),
-            number(widget, "getX"),
-            number(widget, "getY"),
-            number(widget, "getWidth"),
-            number(widget, "getHeight"),
+            UiGeometry.group(widget)
+                ? "config-group"
+                : UiGeometry.header(widget)
+                    ? "group-header"
+                    : UiGeometry.cloth(widget)
+                        ? "config-entry"
+                        : path.equals("0") ? "screen" : "widget",
+            geometry.layout(),
+            geometry.hit(),
+            clipped,
+            geometry.source(),
+            UiGeometry.group(widget) ? (Boolean) Reflect.call(widget, "isExpanded") : null,
             value);
     output.add(new Live(node, widget));
     if (Reflect.hasMethod(widget, "children", 0)) {
@@ -96,15 +121,65 @@ final class MinecraftUi {
         int index = 0;
         for (Object child : iterable) {
           if (child != null)
-            visit(child, path + "/" + index, active, visible, visited, output, limit, depth + 1);
+            visit(
+                child,
+                path + "/" + index,
+                active,
+                visible,
+                UiGeometry.childClip(widget, clip),
+                visited,
+                output,
+                limit,
+                depth + 1);
           index++;
         }
       }
     }
   }
 
-  List<Node> tree(int limit) {
-    return live(limit).stream().map(Live::node).toList();
+  UiGeometry.Bounds viewport() {
+    Object window = Reflect.call(game.minecraft, "getWindow");
+    return new UiGeometry.Bounds(
+        0,
+        0,
+        ((Number) Reflect.call(window, "getGuiScaledWidth")).doubleValue(),
+        ((Number) Reflect.call(window, "getGuiScaledHeight")).doubleValue());
+  }
+
+  Map<String, Object> snapshot(int limit) {
+    Object screen = game.screen();
+    var snapshot = new LinkedHashMap<String, Object>();
+    snapshot.put("frame", io.github.billstark001.minedriver.hooks.FrameClock.count());
+    snapshot.put("screen", screen == null ? null : screen.getClass().getName());
+    snapshot.put("screenId", screenId());
+    snapshot.put("coordinateSpace", "gui");
+    snapshot.put("viewport", viewport());
+    snapshot.put("window", game.media.window(Map.of()));
+    snapshot.put("occlusion", "unknown");
+    snapshot.put("elements", live(limit).stream().map(Live::node).toList());
+    snapshot.put("slots", UiSlots.snapshot(game));
+    snapshot.put("render", game.visuals.snapshot());
+    return snapshot;
+  }
+
+  String screenId() {
+    Object screen = game.screen();
+    return screen == null
+        ? null
+        : screen.getClass().getName() + "@" + Integer.toHexString(System.identityHashCode(screen));
+  }
+
+  Object expand(Map<String, Object> parameters) {
+    Live selected = select(Parameters.object(parameters, "selector"));
+    if (!UiGeometry.group(selected.widget()))
+      throw new DriverException("UNSUPPORTED_WIDGET", "Widget is not an expandable Cloth category");
+    if (!(parameters.get("expanded") instanceof Boolean expanded))
+      throw Parameters.invalid("expanded must be boolean");
+    Reflect.call(selected.widget(), "setExpanded", expanded);
+    if (!Boolean.valueOf(expanded).equals(Reflect.call(selected.widget(), "isExpanded")))
+      throw new DriverException(
+          "UI_EFFECT_NOT_OBSERVED", "Category did not reach requested expansion state");
+    return Map.of("channel", "semantic", "expanded", expanded, "path", selected.node().path());
   }
 
   Live select(Map<String, Object> selector) {
@@ -165,15 +240,50 @@ final class MinecraftUi {
     Object screen = game.screen();
     if (screen == null)
       throw new DriverException("NO_SCREEN", "A screen is required for GUI input");
+    if (game.overlay() != null)
+      throw new DriverException("INPUT_BLOCKED", "An overlay covers the screen");
+    if (parameters.containsKey("screenId") && !parameters.get("screenId").equals(screenId()))
+      throw new DriverException("UI_CHANGED", "Screen differs from the selected snapshot");
+    Live selected = null;
     double x;
     double y;
-    if (parameters.containsKey("selector")) {
-      Node node = select(Parameters.object(parameters, "selector")).node();
-      if (node.width() <= 0 || node.height() <= 0)
-        throw new DriverException("NO_WIDGET_BOUNDS", "Widget has no clickable bounds");
-      x = node.x() + node.width() / 2.0;
-      y = node.y() + node.height() / 2.0;
+    int targets =
+        (parameters.containsKey("selector") ? 1 : 0)
+            + (parameters.containsKey("slot") ? 1 : 0)
+            + (parameters.containsKey("x") || parameters.containsKey("y") ? 1 : 0);
+    if (targets != 1)
+      throw Parameters.invalid("Choose exactly one click target: selector, slot, or x and y");
+    if (parameters.containsKey("slot")) {
+      int index = Parameters.integer(parameters, "slot", -1, 0, 8191);
+      Map<String, Object> slot =
+          UiSlots.snapshot(game).stream()
+              .filter(value -> ((Number) value.get("menuSlot")).intValue() == index)
+              .findFirst()
+              .orElseThrow(
+                  () ->
+                      new DriverException("SLOT_NOT_FOUND", "No visible container slot " + index));
+      if (!Boolean.TRUE.equals(slot.get("active")))
+        throw new DriverException("SLOT_DISABLED", "Container slot is inactive");
+      UiGeometry.Bounds bounds = (UiGeometry.Bounds) slot.get("clippedBounds");
+      if (bounds.empty())
+        throw new DriverException("WIDGET_CLIPPED", "Slot is outside its viewport");
+      x = bounds.x() + bounds.width() / 2;
+      y = bounds.y() + bounds.height() / 2;
+    } else if (parameters.containsKey("selector")) {
+      selected = select(Parameters.object(parameters, "selector"));
+      UiGeometry.Bounds bounds = selected.node().clippedBounds();
+      if (bounds == null)
+        throw new DriverException("NO_WIDGET_BOUNDS", "Widget has no known hit region");
+      if (bounds.empty())
+        throw new DriverException("WIDGET_CLIPPED", "Widget hit region is outside its viewport");
+      String part = Parameters.string(parameters, "part", "hit");
+      if (!part.equals("hit") && !(part.equals("header") && UiGeometry.group(selected.widget())))
+        throw Parameters.invalid("Unsupported click part " + part);
+      x = bounds.x() + bounds.width() / 2.0;
+      y = bounds.y() + bounds.height() / 2.0;
     } else {
+      if (!parameters.containsKey("x") || !parameters.containsKey("y"))
+        throw Parameters.invalid("Both x and y are required");
       x = Parameters.decimal(parameters, "x", 0);
       y = Parameters.decimal(parameters, "y", 0);
     }
@@ -190,12 +300,28 @@ final class MinecraftUi {
         || x >= ((Number) Reflect.call(window, "getGuiScaledWidth")).doubleValue()
         || y >= ((Number) Reflect.call(window, "getGuiScaledHeight")).doubleValue())
       throw new DriverException("INPUT_OUTSIDE_VIEWPORT", "Click lies outside the GUI viewport");
-    Reflect.call(screen, "mouseMoved", x, y);
-    boolean consumed = Boolean.TRUE.equals(Reflect.call(screen, "mouseClicked", event, false));
-    Reflect.call(screen, "mouseReleased", event);
+    Boolean expandedBefore = selected == null ? null : selected.node().expanded();
+    game.input.pointer(x, y);
+    int buttonCode = ((Number) Reflect.call(button, "button")).intValue();
+    game.input.button(buttonCode, true);
+    boolean consumed;
+    try {
+      Reflect.call(screen, "mouseMoved", x, y);
+      consumed = Boolean.TRUE.equals(Reflect.call(screen, "mouseClicked", event, false));
+    } finally {
+      try {
+        Reflect.call(screen, "mouseReleased", event);
+      } finally {
+        game.input.button(buttonCode, false);
+      }
+    }
     if (!consumed)
       throw new DriverException(
           "INPUT_NOT_CONSUMED", "Screen did not consume click at " + x + ", " + y);
+    if (expandedBefore != null
+        && expandedBefore.equals(Reflect.call(selected.widget(), "isExpanded")))
+      throw new DriverException(
+          "UI_EFFECT_NOT_OBSERVED", "Click was consumed but category expansion did not change");
     return Map.of("channel", "input", "consumed", true, "x", x, "y", y);
   }
 
@@ -239,12 +365,6 @@ final class MinecraftUi {
     return Reflect.hasMethod(contents, "getKey", 0)
         ? Reflect.call(contents, "getKey").toString()
         : null;
-  }
-
-  private static int number(Object widget, String method) {
-    return Reflect.hasMethod(widget, method, 0)
-        ? ((Number) Reflect.call(widget, method)).intValue()
-        : 0;
   }
 
   private static boolean flag(Object widget, String field, String method, boolean fallback) {

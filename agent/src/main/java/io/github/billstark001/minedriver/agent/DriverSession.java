@@ -56,6 +56,12 @@ final class DriverSession implements Driver, AutoCloseable {
           }
         };
     scenarios = new URLClassLoader(urls, parent);
+    game.client(
+        () -> {
+          game.input.configure();
+          return null;
+        },
+        timeout);
     builtins();
     ExtensionRegistry extensionRegistry =
         new ExtensionRegistry() {
@@ -86,6 +92,31 @@ final class DriverSession implements Driver, AutoCloseable {
   }
 
   private void builtins() {
+    register(
+        "input.isolation.status",
+        "Inspect input isolation capabilities and leases",
+        true,
+        "read",
+        p -> game.input.status());
+    register(
+        "input.isolation.acquire",
+        "Acquire an expiring external-input isolation lease",
+        false,
+        "input",
+        p -> game.client(() -> game.input.acquire(p), timeout));
+    register(
+        "input.isolation.renew",
+        "Renew an owned input isolation lease",
+        false,
+        "input",
+        p -> game.client(() -> game.input.renew(p), timeout));
+    register(
+        "input.isolation.release",
+        "Release an owned input isolation lease",
+        false,
+        "input",
+        p -> game.client(() -> game.input.release(p), timeout));
+
     register(
         "network.inspect",
         "Inspect play connection and native packet rate counters",
@@ -140,7 +171,13 @@ final class DriverSession implements Driver, AutoCloseable {
                 "nativeFrameworks",
                 List.of("fabric", "neoforge"),
                 "productionExperimental",
-                config.allowProduction()));
+                config.allowProduction(),
+                "input",
+                game.input.status(),
+                "renderGeometryHooks",
+                io.github.billstark001.minedriver.hooks.VisualHooks.installed(),
+                "backgroundExecution",
+                config.backgroundExecution()));
     register(
         "session.close",
         "Finish the session and stop this client",
@@ -153,13 +190,28 @@ final class DriverSession implements Driver, AutoCloseable {
           return true;
         });
     register(
-        "ui.tree",
-        "Inspect native screen widget tree",
+        "ui.snapshot",
+        "Capture widgets and geometry in GUI coordinates",
         true,
         "read",
-        p ->
-            game.client(
-                () -> game.ui.tree(Parameters.integer(p, "limit", 8192, 1, 8192)), timeout));
+        p -> {
+          game.awaitFrames(1, duration(p));
+          Object snapshot =
+              game.client(
+                  () -> game.ui.snapshot(Parameters.integer(p, "limit", 8192, 1, 8192)), timeout);
+          if (p.containsKey("name"))
+            Json.write(
+                io.github.billstark001.minedriver.protocol.Paths.child(
+                    config.output().resolve("ui"), Parameters.string(p, "name", null) + ".json"),
+                snapshot);
+          return snapshot;
+        });
+    register(
+        "ui.expand",
+        "Set and verify Cloth category expansion",
+        false,
+        "semantic",
+        p -> game.client(() -> game.ui.expand(p), timeout));
     register(
         "ui.activate",
         "Activate exactly one enabled widget using its semantic action",
@@ -198,13 +250,13 @@ final class DriverSession implements Driver, AutoCloseable {
         "Dispatch native screen mouse press and release",
         false,
         "input",
-        p -> game.client(() -> game.ui.click(p), timeout));
+        p -> game.client(() -> game.input.automation(() -> game.ui.click(p)), timeout));
     register(
         "input.scroll",
         "Dispatch native screen scrolling",
         false,
         "input",
-        p -> game.client(() -> game.ui.scroll(p), timeout));
+        p -> game.client(() -> game.input.automation(() -> game.ui.scroll(p)), timeout));
     register(
         "input.key",
         "Dispatch keyboard handler press, hold completed frames, release",
@@ -216,7 +268,7 @@ final class DriverSession implements Driver, AutoCloseable {
         "Dispatch keyboard handler text input",
         false,
         "input",
-        p -> game.client(() -> game.media.inputText(p), timeout));
+        p -> game.client(() -> game.input.automation(() -> game.media.inputText(p)), timeout));
     register(
         "render.await",
         "Wait for completed render frames",
@@ -494,6 +546,13 @@ final class DriverSession implements Driver, AutoCloseable {
   }
 
   @Override
+  public void await(
+      String description, Duration limit, java.util.function.BooleanSupplier condition) {
+    if (isGameThread()) throw new DriverException("BAD_THREAD", "Do not wait on a game thread");
+    game.observer.await("WAITING_SCENARIO", condition, limit, description);
+  }
+
+  @Override
   public <T> T onServer(Callable<T> action, Duration limit) {
     return game.server(action, limit);
   }
@@ -512,6 +571,13 @@ final class DriverSession implements Driver, AutoCloseable {
 
   @Override
   public void close() throws java.io.IOException {
+    game.client(
+        () -> {
+          game.input.close();
+          game.visuals.close();
+          return null;
+        },
+        Duration.ofSeconds(2));
     profiler.close();
     scenarios.close();
   }

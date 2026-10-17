@@ -94,6 +94,7 @@ public final class Minecraft {
 
   public static final class Options {
     public String languageCode = "en_us";
+    public boolean pauseOnLostFocus = true;
   }
 
   public static final class Renderer {
@@ -103,6 +104,18 @@ public final class Minecraft {
   }
 
   public static final class Window {
+    public int getWidth() {
+      return 640;
+    }
+
+    public int getHeight() {
+      return 480;
+    }
+
+    public double getGuiScale() {
+      return 2.0;
+    }
+
     public boolean isFocused() {
       return true;
     }

@@ -13,9 +13,9 @@ public interface Driver {
 
   <T> T onServer(Callable<T> action, Duration timeout);
 
+  void await(String description, Duration timeout, java.util.function.BooleanSupplier condition);
+
   Path outputDirectory();
 
-  default boolean isGameThread() {
-    return false;
-  }
+  boolean isGameThread();
 }
