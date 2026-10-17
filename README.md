@@ -8,13 +8,14 @@ MineDriver is a Minecraft mod development and debugging toolkit. Its Gradle plug
 
 ## Features
 
-- Native screen/widget inspection and exact selectors: translation key, label, type, tree path or stable ID. Semantic activation/text setters and native game input are distinct channels.
+- One `ui.snapshot` for native widgets, Cloth categories, container slots and rendered text/items, with layout/hit/clipped bounds and frame/screen identity. Exact selectors support translation key, label, type, path or stable ID; semantic actions and native input remain distinct.
 - Fabric Mod Menu, NeoForge settings factories and Cloth AutoConfig screen entry points, without bundling those mods.
-- Completed-frame barriers, asynchronous validated PNG capture, resource/language reload and screenshot comparison with crop, masks, tolerance and diff artifacts.
+- Standard-game external input isolation, owned leases, virtual key polling and independent background execution with observable actual focus.
+- Completed-frame barriers, asynchronous validated PNG plus paired UI capture, resource/language reload and screenshot comparison with crop, masks, tolerance and diff artifacts.
 - Isolated world creation, server fixtures, authoritative block/inventory snapshots, Brigadier commands and ordinary client command packets.
 - Frame intervals, render-method duration, GC, heap, local-server tick sampling and optional JFR recording.
 - JSON plans, Java scenarios, `custom.*` extensions, CLI and MCP tools with schemas and screenshot image content.
-- Existing Fabric/NeoForge test tasks plus fresh JUnit XML validation; JSON/JUnit XML/HTML run reports, logs and failure screenshots.
+- Existing Fabric/NeoForge test tasks plus fresh JUnit XML validation; lifecycle/blocker diagnostics, JSON/JUnit XML/HTML reports, logs, failure captures and read-only owner/ACL evidence.
 
 The tool ships **no loader mod metadata or mod initializer**. Its separate `minedriver` source set stays out of your mod's main JAR. Native framework fixtures contain metadata belonging to their test subject, not the driver.
 
@@ -25,6 +26,7 @@ Use JDK 25. The wrapper pins Gradle 9.5.0. Client runs need a working display/gr
 ```powershell
 .\gradlew.bat check build :cli:installDist
 .\gradlew.bat -p integration/neoforge mineDriverCheck
+.\gradlew.bat -p integration/neoforge mineDriverCheck -Pprobe=runtime -Pisolation=false
 .\gradlew.bat -p integration/neoforge '-Pplan=../../examples/plans/neoforge-settings.json' '-Pprobe=fixture' mineDriverCheck
 .\gradlew.bat -p integration/fabric mineDriverFrameworkCheck
 .\gradlew.bat -p integration/neoforge-tests mineDriverFrameworkCheck
@@ -57,6 +59,8 @@ mineDriver {
     plan.set(layout.projectDirectory.file('driver/title-smoke.json'))
     timeoutMillis.set(300000L)
     operationTimeoutMillis.set(30000L)
+    inputIsolation.set(true) // finite checks; interactive sessions acquire explicit leases
+    backgroundExecution.set(true)
 }
 ```
 
@@ -71,6 +75,10 @@ build/minedriver/runs/<task>/<runId>/       game directory and saves
 build/reports/minedriver/<task>/<runId>/   connection.json, client.log, reports and artifacts
 build/reports/minedriver/<task>/latest.json
 ```
+
+Checks isolate standard external game input by default and permit background automation. Interactive sessions start without an isolation lease; use `input.isolation.acquire`, `renew`, `release` and `status`. Required hook failures are explicit. `agent.status` reports cached lifecycle blockers, actual focus/pause and snapshot/heartbeat age without waiting behind actions. Each command has one deadline covering queue admission and nested waits.
+
+Directory diagnostics are `filesystem-gradle.json` and `filesystem-client.json` in the report folder. They record identity, ownership and ACL evidence without changing permissions.
 
 A check requires a nonempty plan or a Java scenario. Success requires a complete PASS result carrying the current run ID and a successful process exit. Zero exit, stale/missing reports, startup failure and timeouts cannot substitute for a passing test.
 
@@ -95,7 +103,7 @@ Start `mineDriverRun` in your mod project, then use the installed CLI from this 
 ```powershell
 .\cli\build\install\minedriver\bin\minedriver.bat D:/mod/build/reports/minedriver/mineDriverRun/latest.json inspect
 .\cli\build\install\minedriver\bin\minedriver.bat D:/mod/build/reports/minedriver/mineDriverRun/latest.json commands
-.\cli\build\install\minedriver\bin\minedriver.bat D:/mod/build/reports/minedriver/mineDriverRun/latest.json call ui.tree
+.\cli\build\install\minedriver\bin\minedriver.bat D:/mod/build/reports/minedriver/mineDriverRun/latest.json call ui.snapshot
 .\cli\build\install\minedriver\bin\minedriver.bat D:/mod/build/reports/minedriver/mineDriverRun/latest.json call session.close
 ```
 

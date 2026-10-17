@@ -1,6 +1,6 @@
 # Compatibility and validation
 
-Recorded on **2026-10-06**, Windows, JDK 25.0.2 and Gradle 9.5.0. These are tested combinations, not a claim about all loader releases or operating systems. Tool version is `0.1.0-SNAPSHOT`.
+Validation records cover **2026-10-06 through 2026-10-18** on Windows, JDK 25.0.2 and Gradle 9.5.0. These are tested combinations, not a claim about all loader releases or operating systems. The original October 6 matrix used `0.1.0-SNAPSHOT`; October 18 checks use the unreleased development changes after `0.2.0`.
 
 ## Real game checks
 
@@ -46,6 +46,32 @@ Set `-Dminedriver.root=<checkout>` and `-Dminedriver.plan=<plan>` when using ano
 
 ## Automated regression coverage
 
+### 2026-10-18 input, geometry and lifecycle follow-up
+
+`format check build :cli:installDist` passed with **41 tests, zero failures/errors/skips**. Added coverage includes real transformed JVM input polling, callback filtering and stale queue generations, held-input quarantine, Cloth header geometry and clipping, native focus overriding stale client focus caches, missing-hook cleanup, shared deadlines/cancelled queued mutations, loading warnings behind overlays, unknown-screen timeout evidence, and cached HTTP status while four action requests are blocked.
+
+Fresh real-client checks below each have a successful Gradle exit and a matching `runId`, `complete=true`, `status="PASS"` result. Artifacts are under `integration/<loader>/build/reports/minedriver/mineDriverCheck/<runId>/`.
+
+| Runtime and configuration | Run ID | Assertions |
+| --- | --- | --- |
+| NeoForge 26.3.0.48-beta, Minecraft 26.3, Cloth 26.3.159; automatic session isolation | `1792263354385-c8415684-9e75-4068-be40-7d9b3a19df70` | Native nested Cloth header expand/collapse and idempotent semantic expansion; ignored external keyboard callbacks; virtual W polling; independent leases; unfocused ESC navigation; hidden-window world entry without pause; held W moves the authoritative server player; empty/nonempty slot geometry and server-confirmed pickup/replacement; native text/item bounds; paired screenshots. |
+| NeoForge 26.2.0.88, Minecraft 26.2, Cloth 26.2.155; interactive-style leases, exact metadata warning acceptance | `1792263555600-071a49d1-6907-46a2-95c4-a0e8f1fd0678` | Same runtime scenario, plus last-lease expiry and reacquisition. The known `cloth_config` metadata warning is accepted only by its exact native identity in `fixtures/accepted-cloth26.2.json`. |
+| Fabric Loader 0.19.5, Minecraft 26.3, Fabric API 0.161.0+26.3; automatic session isolation | `1792263486138-7c453415-8f9e-4375-9400-3f361b4ed334` | Native title/options input, required-hook installation and paired PNG/UI JSON capture. |
+
+The default-reject NeoForge 26.2 check `1792261868723-f6be27e9-512d-4150-b4ac-785a094d85e4` correctly produced complete FAIL with `STARTUP_WARNINGS` and native warning details instead of waiting for the watchdog. Unknown warnings, fatal issues and overlay coexistence also have deterministic unit coverage. The unified observer replaces the previous separate readiness loops; the broad warning override and old UI command are removed.
+
+Reproduce the new native scenarios:
+
+```powershell
+.\gradlew.bat -p integration/neoforge mineDriverCheck -Pprobe=runtime
+.\gradlew.bat -p integration/neoforge mineDriverCheck '-PneoVersion=26.2.0.88' '-PclothVersion=26.2.155' '-PacceptedWarningsFile=fixtures/accepted-cloth26.2.json' -Pprobe=runtime -Pisolation=false
+.\gradlew.bat -p integration/fabric mineDriverCheck
+```
+
+The focus fixture hides/restores only its owned Minecraft native window and asserts unchanged 640×480 physical / 320×240 GUI dimensions. During development, a second SDL test window caused the game's single-window event loop to misroute resize events and render a small duplicate picture in the upper-left. That fixture was removed; the corrected screenshots were visually inspected. Separate-process foreground activation attempts were unreliable under Windows foreground policy and were also removed. Failed fixture artifacts remain available, including `1792261542553-638c5294-f8db-4fdd-994b-b512410c3ef7` (SDL auxiliary-window resize) and `1792263428266-e642a359-5d14-402f-b241-8d8af90ba9c6` (GLFW retained focus on a hidden window). Focus observation now queries SDL/GLFW state and accounts for GLFW visibility rather than trusting Minecraft's initial cached focus value.
+
+Both process diagnostics recorded the current user as owner/default token owner, with the administrator role disabled. No anomalous owner was reproduced. `filesystem-gradle.json` and `filesystem-client.json` retain before/after existence, resolved path, owner, ACL and process/token evidence; no permission repair is performed.
+
 ### 2026-10-16 Latticium follow-up
 
 Latticium's NeoForge 26.3 client exposed a readiness race: `world.create` returned a live player/level while `LevelLoadingScreen` was still present, and an immediately dispatched F8 shortcut was ignored. The driver now waits for loading-screen and resource-overlay dismissal. A simulated regression covers partial world initialization, loading screens and overlays; the real rerun passed native F8, pause/resume, screen-focus shortcut exclusion, task/diagnostic navigation and Cloth settings in `en_us`, `zh_cn`, `zh_tw` and `ja_jp` at a 640×480 physical / 320×240 GUI viewport. The fresh successful Latticium run is `1792077668279-fe3177ec-d3bf-4bfe-8e17-bace843c33ec`. The corresponding earlier failure is retained as `1792077370531-00807e84-99bd-4f49-b62b-b39719184285`. Multiplayer connection uses the same readiness predicate but dedicated-server validation remains open.
@@ -85,4 +111,4 @@ Two external test conditions remain explicit:
 - Music Control's ordinary-client world creation with the tested Fabric API's GameTest modules loaded without a configured test run hit a native dynamic-test initialization error. That fixture opts into `fabric.debug.disableModIds` for `fabric-gametest-api-v1` and `fabric-client-gametest-api-v1`. MineDriver does not automatically disable them; the correctly configured native GameTest project runs them successfully.
 - World Mirror's optional Xaero bridge declared a required map dependency absent in that checkout. Core UI validation disables `xaero_world_map_bridge`, `xaeroworldmap` and `xaerominimap`; map behavior is outside this test.
 
-Production/unclassified runtimes and unknown versions require explicit opt-ins and remain experimental. Dedicated-server connection, OS input/focus behavior, GPU timing, older obfuscated versions, hot reload and broad live-launch configuration-cache compatibility are not claimed. Native UI flags do not capture arbitrary custom-rendered controls or occlusion. Stable visual baselines require controlled resources/language/layout/world conditions and review.
+Production/unclassified runtimes and unknown versions require explicit opt-ins and remain experimental. Dedicated-server connection, other operating systems, direct device access by mods, GPU timing, older obfuscated versions, hot reload and broad live-launch configuration-cache compatibility are not claimed. Standard Windows game-input isolation and background execution have the October 18 coverage above; it does not establish all OS focus transitions or minimized rendering behavior. Native UI flags and standard text/item render states do not capture arbitrary custom-rendered controls or occlusion. Stable visual baselines require controlled resources/language/layout/world conditions and review.

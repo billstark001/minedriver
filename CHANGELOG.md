@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+- Replace the UI inspection API with a single `ui.snapshot` object: widget hit/layout/clipped bounds, Cloth expansion, container slots, native rendered text/items, frame/screen identity and paired screenshot geometry. No legacy command alias is registered.
+- Add scoped standard-game input isolation, virtual key polling, expiring owned leases, queue generations, input cleanup and independent background execution. Missing required hooks fail explicitly.
+- Consolidate startup/title/world waits into a lifecycle observer with cached status, actual focus/pause, heartbeat/last-failure evidence and shared operation deadlines. Remove the broad warning override; only diagnosed exact warning identities may proceed.
+- Record directory owners, ACLs and process/token identity from Gradle and the client without modifying permissions.
+- Preserve successful shutdown-deadline exit codes. Real focus regressions hide/restore the owned native window and assert unchanged dimensions, background input and world entry.
+
 ## [0.2.0] - 2026-10-16
 
 ### Fixed

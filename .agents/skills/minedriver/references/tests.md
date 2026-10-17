@@ -35,6 +35,8 @@ mineDriver {
     plan.set(layout.projectDirectory.file('driver/options.json'))
     timeoutMillis.set(300000L)
     operationTimeoutMillis.set(30000L)
+    inputIsolation.set(true)
+    backgroundExecution.set(true)
 }
 ```
 
@@ -95,3 +97,5 @@ Configure the native runner to write that path, then invoke `mineDriverFramework
 ## Validate the result
 
 Run the smallest relevant real check, inspect fresh artifacts and record the runtime, task and assertions. Root MineDriver simulated-client tests prove driver contracts only; they do not establish a new Minecraft version's compatibility. Preserve failure evidence and fix the predicate/setup rather than removing assertions or accepting current screenshots as new baselines. Wire into normal verification only when requested by the project. Report remaining unsupported behavior explicitly.
+
+Native input isolation requires complete supported hooks; simulated clients must explicitly set `inputIsolation=false`. The NeoForge runtime regression hides/restores its owned native window to trigger actual focus loss; never create a second SDL window in Minecraft’s process, whose single-window event loop can misroute resize events. Assert dimensions before/during/after focus loss.

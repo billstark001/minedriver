@@ -10,15 +10,20 @@ MineDriver 是 Minecraft mod 开发和调试工具，主体为 **Gradle 插件 +
 
 | 功能 | 接口 |
 | --- | --- |
-| 游戏状态、屏幕、控件树 | `session.inspect`、`ui.tree`；翻译键、文字、类型、路径、状态、玩家信息 |
+| 游戏状态和完整 UI 快照 | `session.inspect`、`ui.snapshot`；控件、Cloth 分类、槽位、文字/物品绘制边界、帧号和屏幕标识 |
 | 控件操作 | 精确选择翻译键、标签、类型、路径或稳定 ID；歧义、禁用、隐藏时明确报错 |
 | 设置入口 | Fabric Mod Menu、NeoForge 设置工厂、Cloth AutoConfig；不自动安装依赖 |
-| 输入 | GUI 点击/滚动、键盘按下/保持/释放、字符输入；与语义操作分别记录 |
+| 输入与隔离 | GUI 点击/滚动、键盘 TAP/PRESS/RELEASE、字符输入；外部输入屏蔽租约、虚拟状态查询和独立后台策略 |
+| 阻塞和目录诊断 | `agent.status` 缓存状态、真实焦点/暂停、心跳和失败阶段；Gradle/客户端分别记录所有者、ACL 和身份 |
 | 截图和多语言 | 完整帧屏障、异步 PNG、裁剪/遮罩/容差比较、差异图、资源重载等待 |
 | 世界夹具 | 独立单人世界、方块/背包/位置设置、本地服务端权威快照 |
 | 命令、网络和性能 | Brigadier、普通客户端命令包、实验性连接、帧/GC/堆/tick/JFR |
 | 自动化与扩展 | JSON 计划、Java 场景、`custom.*` 命令、稳定 ID、CLI、MCP tools |
 | 原生框架与报告 | Fabric GameTest / NeoForge JUnit；新生成的 XML、JSON/HTML 报告、失败截图和日志 |
+
+`ui.snapshot` 是唯一 UI 检查接口，返回对象：`elements` 为原生控件树，`slots` 包括空容器槽位，`render.draws` 提供标准 GUI 文字和物品的实际绘制边界。控件区分 `layoutBounds`、`hitBounds`、`clippedBounds`，未知范围为 null；裁剪信息不保证没有遮挡。Cloth 分类暴露 `expanded`，可用 `ui.expand` 幂等设置，也可通过原生标题点击验证状态变化。点击可携带 `screenId` 拒绝过期屏幕，槽位点击使用当前菜单的 `slot` 编号。
+
+检查模式默认屏蔽该实例的标准外部输入；交互模式通过 `input.isolation.acquire/renew/release/status` 管理租约。后台策略暂时关闭失焦暂停，自动输入回调内使用虚拟焦点，状态观察仍返回真实焦点。关闭后台策略后，失焦输入明确返回 `FOCUS_LOST`。直接读取原生设备的 mod 不在标准路径隔离保证内；最小化后没有渲染帧时，截图和帧等待仍会有界失败。
 
 ## 快速运行
 
@@ -58,6 +63,8 @@ mineDriver {
     scenarios.add('example.Smoke') // 可选
     extensionClasses.add('example.ScreenExtension') // 可选
     timeoutMillis.set(300000L)
+    inputIsolation.set(true)
+    backgroundExecution.set(true)
 }
 ```
 
@@ -70,6 +77,8 @@ build/minedriver/runs/<task>/<runId>/
 build/reports/minedriver/<task>/<runId>/
 build/reports/minedriver/<task>/latest.json
 ```
+
+目录异常可检查报告目录中的 `filesystem-gradle.json` 和 `filesystem-client.json`：记录创建前后、seed 复制、启动及结束时的进程身份、Windows 默认所有者 SID、目录所有者和 ACL，不会执行提权、修改所有者或重置权限。
 
 检查模式要求非空计划或 Java 场景。只有本次 run ID 的完整 PASS 报告和成功退出码才能通过；加载失败、旧或缺失报告、超时、断言失败都使 Gradle 失败。应用插件不会自动改变普通运行、构建或发布任务。
 
@@ -91,7 +100,7 @@ Codex 在本仓库中可发现 `.agents/skills/minedriver`。在其它 mod 项�
 
 ```powershell
 .\cli\build\install\minedriver\bin\minedriver.bat D:/mod/build/reports/minedriver/mineDriverRun/latest.json inspect
-.\cli\build\install\minedriver\bin\minedriver.bat D:/mod/build/reports/minedriver/mineDriverRun/latest.json call ui.tree
+.\cli\build\install\minedriver\bin\minedriver.bat D:/mod/build/reports/minedriver/mineDriverRun/latest.json call ui.snapshot
 .\cli\build\install\minedriver\bin\minedriver.bat D:/mod/build/reports/minedriver/mineDriverRun/latest.json call session.close
 ```
 
@@ -102,6 +111,8 @@ MCP stdio server 使用上述程序，参数为 `latest.json` 路径和 `mcp`。
 ## 使用边界
 
 明确适配 Minecraft 26.2、26.3 的已验证组合。生产或无法识别的环境默认拒绝，`allowProduction=true` 可实验性尝试，未知版本还需 `allowUnsupportedRuntime=true`。旧版混淆环境需要额外适配。
+
+统一观察器负责启动、标题页及世界加载；`agent.status` 不等待游戏线程或普通命令锁，会保留当前阻塞界面、快照/帧心跳年龄、真实焦点、暂停和最后失败阶段。命令排队及各级等待共享同一截止时间；已开始的回调超时后结果可能未确定，不应直接重试。截图附带同名 `.ui.json` 和请求/完成帧号。
 
 准备阶段必须到达标题界面并结束资源覆盖层。NeoForge 加载警告默认立即以 `STARTUP_WARNINGS` 失败，加载错误以 `STARTUP_ERRORS` 失败；先查报告里的 `startup.warnings`、`failure-ui.json`、截图和原生日志。确诊后可在 `mineDriver.acceptedStartupWarnings` 中加入精确的 `modId:translationKey`，每条警告都必须匹配，任何错误都会阻止继续。键可能是原生 issue 中的字面模板；不要按屏幕上的英文文本猜键。已接受的警告仍写入报告。模组和音效加载完成不能证明已经越过警告界面。
 
