@@ -227,6 +227,7 @@ public final class MineDriverAgent {
                   }
                   // Only this launched client is terminated; the Gradle daemon is a different
                   // process.
+                  int deadlineExitCode = failure == null ? 0 : 70;
                   Thread exit =
                       new Thread(
                           () -> {
@@ -235,7 +236,7 @@ public final class MineDriverAgent {
                             } catch (InterruptedException ignored) {
                               Thread.currentThread().interrupt();
                             }
-                            Runtime.getRuntime().halt(70);
+                            Runtime.getRuntime().halt(deadlineExitCode);
                           },
                           "MineDriver exit deadline");
                   exit.setDaemon(true);
