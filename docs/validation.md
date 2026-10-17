@@ -1,6 +1,6 @@
 # Compatibility and validation
 
-Validation records cover **2026-10-06 through 2026-10-18** on Windows, JDK 25.0.2 and Gradle 9.5.0. These are tested combinations, not a claim about all loader releases or operating systems. The original October 6 matrix used `0.1.0-SNAPSHOT`; October 18 checks use the unreleased development changes after `0.2.0`.
+Validation records cover **2026-10-06 through 2026-10-18** on Windows, JDK 25.0.2 and Gradle 9.5.0. These are tested combinations, not a claim about all loader releases or operating systems. The original October 6 matrix used `0.1.0-SNAPSHOT`; The initial October 18 follow-up used development changes after `0.2.0`; final `0.3.0` verification is recorded separately below.
 
 ## Real game checks
 
@@ -95,6 +95,26 @@ The follow-up `check build :cli:installDist` passed with **28 tests, zero failur
 - Fresh native reports replacing stale PASS and rejection of all-skipped results.
 
 The test-support client does not render or load real mods; real checks above establish the actual game behavior.
+
+## 0.3.0 release review and verification (2026-10-18)
+
+The four input/lifecycle commits were reviewed end to end before release. The review fixed held-key polling escaping quarantine after restoration, expiry being delayed until observer sampling, missed mouse-release state across queue generations, failed presses skipping release, and input remaining held on close without a lease. Lease/input boundaries now check expiry synchronously, transitions sample native keyboard and mouse state, and cleanup preserves the primary error.
+
+Observer waits now have independent registrations, frame heartbeat comes from the completed-frame hook, and predicate failures or already-expired entries preserve evidence and restore deadline scope. Terminal status survives concurrent wait completion and report cleanup; cached environment/version metadata is retained without querying a stalled client. Finite and asynchronous scenarios share ownership and close guards. Constructor failures restore options and detach resources. Superseded state reads, setters, screenshot/FML probing, the unused agent framework mode, old UI alias and broad warning override are absent. Unknown fields/backends fail explicitly; the two supported native API adapters remain deliberate contracts.
+
+The final root `check build :cli:installDist` passed **55 tests with zero failures/errors/skips**, including 14 new regressions since the initial 41-test follow-up. Build metadata is generated from the sole `gradle.properties` version, consumed by Agent/MCP identity and checked against Gradle in tests. The external init script's metadata-derived classpath also passed a real Gradle `help` invocation.
+
+Fresh candidate client runs each completed with the matching run ID, complete PASS result and successful Gradle exit:
+
+| Runtime | Run ID | Coverage |
+| --- | --- | --- |
+| NeoForge 26.3.0.48-beta / Cloth 26.3.159 | `1792265169336-d4547610-b124-45f5-882e-44b4cf0de43f` | Full runtime scenario with automatic isolation, native state polling/restoration, Cloth geometry, unfocused navigation/world movement and server-confirmed slot actions. |
+| NeoForge 26.2.0.88 / Cloth 26.2.155 | `1792265218783-756efaa7-bdaf-4fdc-a546-359e9fe8236a` | Full runtime scenario with explicit leases/expiry, native restoration and exact diagnosed metadata warning acceptance. |
+| Fabric Loader 0.19.5 / Fabric API 0.161.0+26.3 | `1792265270863-557b82c6-9846-4f8d-abe3-59f4a2df8af7` | Title/options native input and paired screenshot/UI capture; generated version identity and terminal cached environment. |
+
+Default warning rejection was rerun as `1792265330294-9c2a69a6-b080-4b19-948d-46197ca112a4`: it correctly returned complete FAIL / `STARTUP_WARNINGS`, with Agent 0.3.0 and FAILED observer evidence. It did not reach scenarios. Fresh native framework invocations also passed: Fabric **2 GameTests**, NeoForge **1 JUnit test**, with zero failures/skips and newly generated reports.
+
+Reproduction commands are the October 18 runtime commands above, plus `mineDriverFrameworkCheck` in `integration/fabric` and `integration/neoforge-tests`. The local release collector verifies the dated changelog and collects seven versioned distributions with `SHA256SUMS.txt`; generated protocol/standalone Agent/nested plugin metadata and CLI distributions are checked for the same configured version. The tag-driven Release workflow performs its own clean build and distribution collection. See [release and upgrade instructions](releasing.md).
 
 ## 0.2.0 release verification (2026-10-16)
 

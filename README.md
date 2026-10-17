@@ -2,7 +2,7 @@
 
 MineDriver is a Minecraft mod development and debugging toolkit. Its Gradle plugin launches an isolated client with a Java agent; a local CLI, JSON plans, Java scenarios and an MCP stdio bridge inspect and control that client.
 
-**Package/plugin ID:** `io.github.billstark001.minedriver` · **Version:** `0.2.0` · **License:** MIT
+**Package/plugin ID:** `io.github.billstark001.minedriver` · **Version:** [gradle.properties](gradle.properties) · **License:** MIT
 
 [简体中文](docs/README.zh-CN.md) · [Agent skill](docs/skills.md) · [Commands](docs/commands.md) · [Architecture/extensions](docs/architecture.md) · [Native frameworks](docs/frameworks.md) · [Compatibility/validation](docs/validation.md)
 
@@ -45,7 +45,7 @@ pluginManagement {
 }
 ```
 
-Alternatively, run `publishToMavenLocal` in this checkout, add `mavenLocal()` to the consuming project's plugin repositories, and apply `id 'io.github.billstark001.minedriver' version '0.2.0'`. The local plugin marker and a complete forked client launch through that published plugin were verified. No remote publication is performed.
+Alternatively, run `publishToMavenLocal` in this checkout, add `mavenLocal()` to the consuming project's plugin repositories, and apply `id 'io.github.billstark001.minedriver' version '0.3.0'`. The Maven-local plugin marker and forked-client publication flow were verified for 0.2.0; current release checks are listed in the validation record. No remote publication is performed.
 
 In the loader subproject, apply MineDriver alongside your existing Loom/ModDevGradle plugin:
 

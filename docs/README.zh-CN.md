@@ -1,6 +1,6 @@
 # MineDriver
 
-MineDriver 是 Minecraft mod 开发和调试工具，主体为 **Gradle 插件 + Java Agent**，包名和插件 ID 均为 `io.github.billstark001.minedriver`，版本为 `0.2.0`。
+MineDriver 是 Minecraft mod 开发和调试工具，主体为 **Gradle 插件 + Java Agent**，包名和插件 ID 均为 `io.github.billstark001.minedriver`，版本统一由 [gradle.properties](../gradle.properties) 定义并生成运行时元数据。
 
 它克隆已有 Loom / ModDevGradle 的客户端启动配置，保留依赖准备、classpath、参数和环境，在独立游戏目录中注入 Agent。工具本身没有 mod 元数据或初始化器。原生框架示例的元数据仅属于框架的测试对象。
 
@@ -23,7 +23,7 @@ MineDriver 是 Minecraft mod 开发和调试工具，主体为 **Gradle 插件 +
 
 `ui.snapshot` 是唯一 UI 检查接口，返回对象：`elements` 为原生控件树，`slots` 包括空容器槽位，`render.draws` 提供标准 GUI 文字和物品的实际绘制边界。控件区分 `layoutBounds`、`hitBounds`、`clippedBounds`，未知范围为 null；裁剪信息不保证没有遮挡。Cloth 分类暴露 `expanded`，可用 `ui.expand` 幂等设置，也可通过原生标题点击验证状态变化。点击可携带 `screenId` 拒绝过期屏幕，槽位点击使用当前菜单的 `slot` 编号。
 
-检查模式默认屏蔽该实例的标准外部输入；交互模式通过 `input.isolation.acquire/renew/release/status` 管理租约。后台策略暂时关闭失焦暂停，自动输入回调内使用虚拟焦点，状态观察仍返回真实焦点。关闭后台策略后，失焦输入明确返回 `FOCUS_LOST`。直接读取原生设备的 mod 不在标准路径隔离保证内；最小化后没有渲染帧时，截图和帧等待仍会有界失败。
+检查模式默认屏蔽该实例的标准外部输入；交互模式通过 `input.isolation.acquire/renew/release/status` 管理租约；输入入口会立即检查到期，恢复后长按隔离也覆盖按键状态轮询。后台策略暂时关闭失焦暂停，自动输入回调内使用虚拟焦点，状态观察仍返回真实焦点。按下回调失败也会尝试释放，关闭时清理无隔离租约的自动输入。关闭后台策略后，失焦输入明确返回 `FOCUS_LOST`。直接读取原生设备的 mod 不在标准路径隔离保证内；最小化后没有渲染帧时，截图和帧等待仍会有界失败。
 
 ## 快速运行
 
@@ -112,7 +112,7 @@ MCP stdio server 使用上述程序，参数为 `latest.json` 路径和 `mcp`。
 
 明确适配 Minecraft 26.2、26.3 的已验证组合。生产或无法识别的环境默认拒绝，`allowProduction=true` 可实验性尝试，未知版本还需 `allowUnsupportedRuntime=true`。旧版混淆环境需要额外适配。
 
-统一观察器负责启动、标题页及世界加载；`agent.status` 不等待游戏线程或普通命令锁，会保留当前阻塞界面、快照/帧心跳年龄、真实焦点、暂停和最后失败阶段。命令排队及各级等待共享同一截止时间；已开始的回调超时后结果可能未确定，不应直接重试。截图附带同名 `.ui.json` 和请求/完成帧号。
+统一观察器负责启动、标题页及世界加载；`agent.status` 不等待游戏线程或普通命令锁，会保留当前阻塞界面、快照/帧心跳年龄、真实焦点、暂停和最后失败阶段。并发等待各自登记和清理，帧心跳直接来自完成帧，关闭阶段拒绝排队或新动作。命令排队及各级等待共享同一截止时间；已开始的回调超时后结果可能未确定，不应直接重试。截图附带同名 `.ui.json` 和请求/完成帧号。
 
 准备阶段必须到达标题界面并结束资源覆盖层。NeoForge 加载警告默认立即以 `STARTUP_WARNINGS` 失败，加载错误以 `STARTUP_ERRORS` 失败；先查报告里的 `startup.warnings`、`failure-ui.json`、截图和原生日志。确诊后可在 `mineDriver.acceptedStartupWarnings` 中加入精确的 `modId:translationKey`，每条警告都必须匹配，任何错误都会阻止继续。键可能是原生 issue 中的字面模板；不要按屏幕上的英文文本猜键。已接受的警告仍写入报告。模组和音效加载完成不能证明已经越过警告界面。
 
