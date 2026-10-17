@@ -29,6 +29,7 @@ final class DriverSession implements Driver, AutoCloseable {
   private final Profiler profiler = new Profiler();
   private final URLClassLoader scenarios;
   private final AtomicBoolean executing = new AtomicBoolean();
+  private final Object lifecycle = new Object();
   private volatile String scenarioStatus = "IDLE";
   private volatile String scenarioError;
   private volatile boolean closing;
@@ -56,39 +57,48 @@ final class DriverSession implements Driver, AutoCloseable {
           }
         };
     scenarios = new URLClassLoader(urls, parent);
-    game.client(
-        () -> {
-          game.input.configure();
-          return null;
-        },
-        timeout);
-    builtins();
-    ExtensionRegistry extensionRegistry =
-        new ExtensionRegistry() {
-          @Override
-          public void register(
-              String command, String description, boolean readOnly, Handler handler) {
-            if (!command.startsWith("custom."))
-              throw new IllegalArgumentException("Extension commands must use custom.*");
-            registry.register(
-                command,
-                description,
-                readOnly,
-                "extension",
-                parameters -> {
-                  Object result = handler.handle(context, parameters);
-                  JsonValues.validate(result);
-                  return result;
-                });
-          }
+    try {
+      game.client(
+          () -> {
+            game.input.configure();
+            return null;
+          },
+          timeout);
+      builtins();
+      ExtensionRegistry extensionRegistry =
+          new ExtensionRegistry() {
+            @Override
+            public void register(
+                String command, String description, boolean readOnly, Handler handler) {
+              if (!command.startsWith("custom."))
+                throw new IllegalArgumentException("Extension commands must use custom.*");
+              registry.register(
+                  command,
+                  description,
+                  readOnly,
+                  "extension",
+                  parameters -> {
+                    Object result = handler.handle(context, parameters);
+                    JsonValues.validate(result);
+                    return result;
+                  });
+            }
 
-          @Override
-          public void identify(Object widget, String stableId) {
-            game.ui.identify(widget, stableId);
-          }
-        };
-    for (String name : config.extensions())
-      ((DriverExtension) instance(name)).register(extensionRegistry);
+            @Override
+            public void identify(Object widget, String stableId) {
+              game.ui.identify(widget, stableId);
+            }
+          };
+      for (String name : config.extensions())
+        ((DriverExtension) instance(name)).register(extensionRegistry);
+    } catch (Exception | Error failure) {
+      try {
+        close();
+      } catch (Exception cleanup) {
+        failure.addSuppressed(cleanup);
+      }
+      throw failure;
+    }
   }
 
   private void builtins() {
@@ -184,9 +194,12 @@ final class DriverSession implements Driver, AutoCloseable {
         false,
         "lifecycle",
         p -> {
-          if (executing.get())
-            throw new DriverException("SCENARIO_BUSY", "Wait for the scenario before closing");
-          closing = true;
+          synchronized (lifecycle) {
+            if (executing.get())
+              throw new DriverException("SCENARIO_BUSY", "Wait for the scenario before closing");
+            closing = true;
+            registry.close();
+          }
           return true;
         });
     register(
@@ -406,14 +419,13 @@ final class DriverSession implements Driver, AutoCloseable {
         false,
         "scenario",
         p -> {
-          if (!executing.compareAndSet(false, true))
-            throw new DriverException("SCENARIO_BUSY", "A scenario is already running");
+          beginScenario();
           scenarioStatus = "RUNNING";
           Thread worker =
               new Thread(
                   () -> {
                     try {
-                      run(
+                      runOwned(
                           p.containsKey("plan")
                               ? Json.GSON.toJsonTree(p.get("plan")).getAsJsonObject()
                               : config.plan(),
@@ -480,7 +492,24 @@ final class DriverSession implements Driver, AutoCloseable {
     return scenarios.loadClass(name).getConstructor().newInstance();
   }
 
+  private void beginScenario() {
+    synchronized (lifecycle) {
+      if (closing) throw new DriverException("SESSION_CLOSED", "Session is closing");
+      if (!executing.compareAndSet(false, true))
+        throw new DriverException("SCENARIO_BUSY", "A scenario is already running");
+    }
+  }
+
   void run(JsonObject plan, List<String> classes) throws Exception {
+    beginScenario();
+    try {
+      runOwned(plan, classes);
+    } finally {
+      executing.set(false);
+    }
+  }
+
+  private void runOwned(JsonObject plan, List<String> classes) throws Exception {
     scenarioStatus = "RUNNING";
     scenarioError = null;
     ClassLoader before = Thread.currentThread().getContextClassLoader();
@@ -571,14 +600,37 @@ final class DriverSession implements Driver, AutoCloseable {
 
   @Override
   public void close() throws java.io.IOException {
-    game.client(
-        () -> {
-          game.input.close();
-          game.visuals.close();
-          return null;
-        },
-        Duration.ofSeconds(2));
-    profiler.close();
-    scenarios.close();
+    synchronized (lifecycle) {
+      closing = true;
+      registry.close();
+    }
+    Throwable failure = null;
+    try {
+      game.client(
+          () -> {
+            try {
+              game.input.close();
+            } finally {
+              game.visuals.close();
+            }
+            return null;
+          },
+          Duration.ofSeconds(2));
+    } catch (Throwable error) {
+      failure = error;
+    }
+    try {
+      profiler.close();
+    } catch (Throwable error) {
+      if (failure == null) failure = error;
+      else failure.addSuppressed(error);
+    }
+    try {
+      scenarios.close();
+    } catch (Throwable error) {
+      if (failure == null) failure = error;
+      else failure.addSuppressed(error);
+    }
+    if (failure != null) throw Reflect.propagate(failure);
   }
 }

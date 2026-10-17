@@ -18,15 +18,13 @@ final class InputIsolation implements AutoCloseable {
   private volatile Map<String, Object> status = Map.of("isolated", false);
   private String expired;
   private Boolean pauseOnLostFocus;
+  private boolean inputUsed;
+  private boolean closed;
   private volatile Map<String, Long> leaseView = Map.of();
 
   InputIsolation(GameRuntime game) {
     this.game = game;
-    sdl =
-        Reflect.call(
-                Reflect.call(game.type("net.minecraft.SharedConstants"), "getCurrentVersion"),
-                "name")
-            .equals("26.3");
+    sdl = game.sdl();
   }
 
   List<String> missingHooks() {
@@ -89,6 +87,8 @@ final class InputIsolation implements AutoCloseable {
   }
 
   Object acquire(Map<String, Object> parameters) {
+    requireOpen();
+    expire();
     String id = UUID.randomUUID().toString();
     acquireInternal(
         id,
@@ -104,7 +104,7 @@ final class InputIsolation implements AutoCloseable {
       throw new DriverException(
           "INPUT_ISOLATION_UNAVAILABLE", "Required input hooks unavailable: " + status());
     if (leases.isEmpty()) {
-      physicalKeys();
+      physicalState();
       clearNativeState();
       InputGate.isolation(true);
     }
@@ -114,6 +114,7 @@ final class InputIsolation implements AutoCloseable {
   }
 
   Object renew(Map<String, Object> parameters) {
+    requireOpen();
     String id = Parameters.string(parameters, "leaseId", null);
     expire();
     if (!leases.containsKey(id) || id.equals("session"))
@@ -130,6 +131,7 @@ final class InputIsolation implements AutoCloseable {
 
   Object release(Map<String, Object> parameters) {
     String id = Parameters.string(parameters, "leaseId", null);
+    expire();
     if (id.equals("session") || leases.remove(id) == null)
       throw new DriverException(
           "INPUT_LEASE_NOT_FOUND", "Only the owner of an interactive lease may release it");
@@ -163,10 +165,11 @@ final class InputIsolation implements AutoCloseable {
     value.put("isolated", InputGate.isolated());
     value.put("backgroundExecution", game.config.backgroundExecution());
     value.put("expiredLease", expired);
+    value.put("closed", closed);
     status = java.util.Collections.unmodifiableMap(value);
   }
 
-  private void physicalKeys() {
+  private void physicalState() {
     Class<?> constants = game.type("com.mojang.blaze3d.platform.InputConstants");
     Object window = Reflect.call(game.minecraft, "getWindow");
     InputGate.rawQuery(true);
@@ -183,6 +186,28 @@ final class InputIsolation implements AutoCloseable {
                     ? Reflect.call(constants, "isKeyDown", key)
                     : Reflect.call(constants, "isKeyDown", window, key));
         InputGate.physicalKey(key, down);
+      }
+      if (sdl) {
+        int mask =
+            ((Number)
+                    Reflect.call(
+                        game.type("org.lwjgl.sdl.SDLMouse"), "SDL_GetMouseState", null, null))
+                .intValue();
+        for (int button = 1; button <= 8; button++)
+          InputGate.physicalMouse(button, (mask & (1 << (button - 1))) != 0);
+      } else {
+        long handle = ((Number) Reflect.call(window, "handle")).longValue();
+        for (int button = 0; button < 8; button++)
+          InputGate.physicalMouse(
+              button,
+              ((Number)
+                          Reflect.call(
+                              game.type("org.lwjgl.glfw.GLFW"),
+                              "glfwGetMouseButton",
+                              handle,
+                              button))
+                      .intValue()
+                  != 0);
       }
     } finally {
       InputGate.rawQuery(false);
@@ -212,7 +237,7 @@ final class InputIsolation implements AutoCloseable {
 
   private void restoreInput() {
     try {
-      physicalKeys();
+      physicalState();
       clearNativeState();
     } finally {
       InputGate.isolation(false);
@@ -220,13 +245,20 @@ final class InputIsolation implements AutoCloseable {
   }
 
   <T> T automation(Callable<T> action) {
+    requireOpen();
+    expire();
     if (expired != null && leases.isEmpty())
       throw new DriverException(
           "INPUT_LEASE_EXPIRED", "Acquire a new lease before continuing automation");
     if (!game.config.backgroundExecution() && !game.focused())
       throw new DriverException(
           "FOCUS_LOST", "Foreground input requires the game window to be focused");
+    inputUsed = true;
     return dispatch(action);
+  }
+
+  private void requireOpen() {
+    if (closed) throw new DriverException("SESSION_CLOSED", "Input controller is closed");
   }
 
   static <T> T dispatch(Callable<T> action) {
@@ -277,10 +309,12 @@ final class InputIsolation implements AutoCloseable {
 
   @Override
   public void close() {
+    closed = true;
     try {
-      if (!leases.isEmpty()) {
+      if (!leases.isEmpty() || inputUsed) {
         leases.clear();
         restoreInput();
+        inputUsed = false;
       }
     } finally {
       try {

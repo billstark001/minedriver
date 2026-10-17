@@ -90,9 +90,10 @@ public final class MineDriverAgent {
             if ((thread.getName().equals("main") || thread.getName().equals("Render thread"))
                 && finished.compareAndSet(false, true)) {
               try {
-                report.finish(
-                    new DriverException("CLIENT_CRASHED", "Uncaught client exception", error),
-                    Map.of());
+                var crash =
+                    new DriverException("CLIENT_CRASHED", "Uncaught client exception", error);
+                observer.finish(crash);
+                report.finish(crash, observer.status());
               } catch (Exception reportError) {
                 reportError.printStackTrace(System.err);
               }
@@ -117,10 +118,11 @@ public final class MineDriverAgent {
               () -> {
                 if (finished.compareAndSet(false, true)) {
                   try {
-                    report.finish(
+                    var exited =
                         new DriverException(
-                            "CLIENT_EXITED", "Client exited before the session completed"),
-                        Map.of());
+                            "CLIENT_EXITED", "Client exited before the session completed");
+                    observer.finish(exited);
+                    report.finish(exited, observer.status());
                   } catch (Exception failure) {
                     failure.printStackTrace(System.err);
                   }
@@ -170,21 +172,23 @@ public final class MineDriverAgent {
                       failure.addSuppressed(capture);
                     }
                   }
+                  observer.finish(failure);
+                  observer.close();
                   if (finished.compareAndSet(false, true)) {
                     try {
-                      report.finish(failure, game == null ? Map.of() : observer.status());
+                      report.finish(failure, observer.status());
                     } catch (Throwable reportFailure) {
                       reportFailure.printStackTrace(System.err);
                       try {
-                        if (failure != null) failure.addSuppressed(reportFailure);
-                        report.finish(failure == null ? reportFailure : failure, observer.status());
+                        if (failure == null) failure = reportFailure;
+                        else failure.addSuppressed(reportFailure);
+                        observer.finish(failure);
+                        report.finish(failure, observer.status());
                       } catch (Exception ignored) {
                         ignored.printStackTrace(System.err);
                       }
                     }
                   }
-                  observer.finish(failure);
-                  observer.close();
                   rpc.close();
                   if (game != null) {
                     try {
@@ -238,11 +242,12 @@ public final class MineDriverAgent {
                   }
                   if (finished.compareAndSet(false, true)) {
                     try {
-                      report.finish(
+                      var expired =
                           new DriverException(
                               "SESSION_TIMEOUT",
-                              "Session exceeded " + config.timeoutMillis() + "ms"),
-                          Map.of());
+                              "Session exceeded " + config.timeoutMillis() + "ms");
+                      observer.finish(expired);
+                      report.finish(expired, observer.status());
                     } catch (Exception error) {
                       error.printStackTrace(System.err);
                     }

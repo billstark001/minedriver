@@ -81,6 +81,16 @@ public final class InputGate {
     return key >= 0 && key < KEYS.length() && KEYS.get(key) != 0;
   }
 
+  public static boolean polled(int key, boolean down) {
+    if (RAW_QUERY.get()) return down;
+    physicalKey(key, down);
+    if (key >= 0 && key < QUARANTINE.length() && QUARANTINE.get(key) != 0) {
+      if (!down) QUARANTINE.set(key, 0);
+      return false;
+    }
+    return down;
+  }
+
   public static long dropped() {
     return DROPPED.get();
   }
@@ -107,6 +117,10 @@ public final class InputGate {
 
   public static boolean blockMouse(int button, int action) {
     return blockKey(65520 + button, action);
+  }
+
+  public static void physicalMouse(int button, boolean down) {
+    physicalKey(65520 + button, down);
   }
 
   public static Runnable queued(Runnable action) {

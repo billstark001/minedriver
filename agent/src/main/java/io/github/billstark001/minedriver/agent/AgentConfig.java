@@ -28,10 +28,34 @@ record AgentConfig(
     JsonObject plan) {
   static AgentConfig read(Path file) throws IOException {
     JsonObject json = Json.read(file).getAsJsonObject();
+    var fields =
+        java.util.Set.of(
+            "protocol",
+            "runId",
+            "mode",
+            "outputDirectory",
+            "connectionFile",
+            "resultFile",
+            "runDirectory",
+            "timeoutMillis",
+            "operationTimeoutMillis",
+            "allowUnsupportedRuntime",
+            "allowProduction",
+            "acceptedStartupWarnings",
+            "unsafeReflection",
+            "inputIsolation",
+            "backgroundExecution",
+            "scenarios",
+            "extensions",
+            "scenarioClasspath",
+            "plan");
+    for (String field : json.keySet())
+      if (!fields.contains(field))
+        throw new IllegalArgumentException("Unknown configuration field " + field);
     if (number(json, "protocol", -1) != 1)
       throw new IllegalArgumentException("Expected MineDriver configuration protocol 1");
     String mode = text(json, "mode", "check");
-    if (!List.of("check", "interactive", "framework").contains(mode))
+    if (!List.of("check", "interactive").contains(mode))
       throw new IllegalArgumentException("Unknown mode " + mode);
     String runId = text(json, "runId", null);
     if (runId == null || !runId.matches("[A-Za-z0-9._-]{1,100}"))

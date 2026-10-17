@@ -57,5 +57,18 @@ class InputTransformerTest {
       InputGate.isolation(false);
     }
     assertEquals(true, poll.invoke(null, 10));
+    InputGate.isolation(true);
+    InputGate.blockKey(10, 1);
+    InputGate.isolation(false);
+    assertEquals(false, poll.invoke(null, 10));
+    InputGate.rawQuery(true);
+    try {
+      assertEquals(true, poll.invoke(null, 10));
+    } finally {
+      InputGate.rawQuery(false);
+    }
+    InputGate.blockKey(10, 0);
+    assertEquals(true, poll.invoke(null, 10));
+    InputGate.physicalKey(10, false);
   }
 }

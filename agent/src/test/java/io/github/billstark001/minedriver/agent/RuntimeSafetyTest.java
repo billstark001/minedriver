@@ -118,6 +118,17 @@ class RuntimeSafetyTest {
             "allowProduction",
             "true"));
     assertThrows(IllegalArgumentException.class, () -> AgentConfig.read(config));
+    for (Map<String, Object> obsolete :
+        java.util.List.of(
+            Map.<String, Object>of("mode", "framework"),
+            Map.<String, Object>of("allowStartupWarnings", true))) {
+      var values =
+          new java.util.LinkedHashMap<String, Object>(
+              Map.of("protocol", 1, "runId", "strict", "outputDirectory", directory.toString()));
+      values.putAll(obsolete);
+      Json.write(config, values);
+      assertThrows(IllegalArgumentException.class, () -> AgentConfig.read(config));
+    }
   }
 
   @Test

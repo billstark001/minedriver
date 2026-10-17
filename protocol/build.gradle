@@ -1,2 +1,13 @@
 base { archivesName = 'minedriver-protocol' }
 dependencies { api 'com.google.code.gson:gson:2.13.2' }
+
+def buildVersion = project.version.toString()
+tasks.named('processResources') {
+    inputs.property('minedriverVersion', buildVersion)
+    filesMatching('io/github/billstark001/minedriver/protocol/build.properties') {
+        expand(version: buildVersion)
+    }
+}
+tasks.named('test') {
+    systemProperty 'minedriver.expectedVersion', buildVersion
+}

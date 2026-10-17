@@ -4,6 +4,12 @@ import java.util.List;
 import net.minecraft.client.input.MouseButtonEvent;
 
 public class Screen {
+  public boolean dragging;
+
+  public void setDragging(boolean value) {
+    dragging = value;
+  }
+
   public record Contents(String key) {
     public String getKey() {
       return key;

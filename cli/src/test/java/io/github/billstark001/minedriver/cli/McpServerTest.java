@@ -94,6 +94,14 @@ class McpServerTest {
       assertEquals(
           "2025-11-25",
           replies.get(1).getAsJsonObject("result").get("protocolVersion").getAsString());
+      assertEquals(
+          io.github.billstark001.minedriver.protocol.BuildInfo.VERSION,
+          replies
+              .get(1)
+              .getAsJsonObject("result")
+              .getAsJsonObject("serverInfo")
+              .get("version")
+              .getAsString());
       var tool =
           replies.get(2).getAsJsonObject("result").getAsJsonArray("tools").get(0).getAsJsonObject();
       assertTrue(tool.getAsJsonObject("inputSchema").getAsJsonObject("properties").has("key"));

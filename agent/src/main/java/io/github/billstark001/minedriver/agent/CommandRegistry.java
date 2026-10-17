@@ -24,6 +24,12 @@ final class CommandRegistry {
   private final java.util.concurrent.locks.ReentrantLock actions =
       new java.util.concurrent.locks.ReentrantLock(true);
   private volatile RunReport report;
+  private volatile boolean closed;
+
+  void close() {
+    closed = true;
+  }
+
   private java.time.Duration timeout = java.time.Duration.ofSeconds(30);
 
   void timeout(java.time.Duration value) {
@@ -84,6 +90,7 @@ final class CommandRegistry {
           throw new DriverException(
               "COMMAND_BUSY", "Command expired while another action was running");
       }
+      if (closed && lock) throw new DriverException("SESSION_CLOSED", "Session is closing");
       if (entry == null) throw new DriverException("UNKNOWN_COMMAND", "Unknown command: " + name);
       Object result = entry.handler().apply(parameters);
       if (report != null && !name.equals("agent.status") && !name.equals("scenario.status"))

@@ -65,7 +65,7 @@ For performance bracket the requested workload with `profile.start`/`profile.sto
 
 ## Finish or diagnose
 
-`scenario.run` returns asynchronous acceptance. Poll `scenario.status` at a bounded interval until `running=false`; treat FAIL and timeout as failures. Then call `session.close` only for the session owned by your test or explicitly requested closure. It refuses while a scenario is running. Wait for the original Gradle process to finish and check its result marker as described in `SKILL.md`.
+`scenario.run` returns asynchronous acceptance. Poll `scenario.status` at a bounded interval until `running=false`; treat FAIL and timeout as failures. Then call `session.close` only for the session owned by your test or explicitly requested closure. It refuses while a scenario is running, including a finite check. Once accepted, queued/new ordinary actions fail `SESSION_CLOSED` while cached status remains available during cleanup. Wait for the original Gradle process to finish and check its result marker as described in `SKILL.md`.
 
 For a failure, inspect this run's `result.json` failure and step trace, `report.html`, failure screenshot if available, and the relevant `client.log` section. Ownership incidents also have `filesystem-gradle.json` and `filesystem-client.json`; preserve them before attempting any permission changes. Keep the original artifacts when rerunning; each launch gets a new ID. Classify before changing configuration:
 

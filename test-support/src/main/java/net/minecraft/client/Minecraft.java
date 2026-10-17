@@ -15,6 +15,7 @@ public final class Minecraft {
   public final Options options = new Options();
   public final Renderer gameRenderer = new Renderer();
   public final Keyboard keyboardHandler = new Keyboard();
+  public final Mouse mouseHandler = new Mouse();
   public Object player;
   public Object level;
 
@@ -45,6 +46,11 @@ public final class Minecraft {
 
   public void execute(Runnable action) {
     actions.add(action);
+  }
+
+  public void drainActions() {
+    Runnable action;
+    while ((action = actions.poll()) != null) action.run();
   }
 
   public boolean isSameThread() {
@@ -134,10 +140,36 @@ public final class Minecraft {
   }
 
   public static final class Keyboard {
+    public Object lastPreeditEvent;
+    public boolean failPress, failRelease, held;
+
     public void keyPress(long handle, int action, KeyEvent event) {
+      held = action != 0;
+      if ((action != 0 && failPress) || (action == 0 && failRelease))
+        throw new IllegalStateException(action == 0 ? "release failed" : "press failed");
       if (event.key() == 41 && action == 1) instance.gui.setScreen(new TitleScreen());
     }
 
     public void textInput(long handle, String value) {}
+  }
+
+  public static final class Mouse {
+    public Object activeButton, lastClick;
+    public double mousePressedTime, accumulatedDX, accumulatedDY;
+    public boolean isLeftPressed, isMiddlePressed, isRightPressed;
+    public final Smoothing smoothTurnX = new Smoothing(), smoothTurnY = new Smoothing();
+    public final Scroll scrollWheelHandler = new Scroll();
+
+    public void releaseMouse() {}
+
+    public void setIgnoreFirstMove() {}
+  }
+
+  public static final class Smoothing {
+    public void reset() {}
+  }
+
+  public static final class Scroll {
+    public double accumulatedScrollX, accumulatedScrollY;
   }
 }

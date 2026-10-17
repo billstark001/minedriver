@@ -31,10 +31,7 @@ final class MinecraftMedia {
         () -> {
           capturedUi.set(game.ui.snapshot(8192));
           Object renderer = Reflect.field(game.minecraft, "gameRenderer");
-          Object target =
-              Reflect.hasMethod(renderer, "mainRenderTarget", 0)
-                  ? Reflect.call(renderer, "mainRenderTarget")
-                  : Reflect.call(game.minecraft, "getMainRenderTarget");
+          Object target = Reflect.call(renderer, "mainRenderTarget");
           Reflect.call(
               game.type("net.minecraft.client.Screenshot"),
               "grab",
@@ -77,7 +74,7 @@ final class MinecraftMedia {
               if (Reflect.call(manager, "getLanguage", code) == null)
                 throw Parameters.invalid("Language unavailable: " + code);
               Reflect.call(manager, "setSelected", code);
-              setField(Reflect.field(game.minecraft, "options"), "languageCode", code);
+              Reflect.set(Reflect.field(game.minecraft, "options"), "languageCode", code);
               return Reflect.call(game.minecraft, "reloadResourcePacks");
             },
             timeout);
@@ -130,16 +127,23 @@ final class MinecraftMedia {
     String action = Parameters.string(parameters, "action", "TAP");
     if (!java.util.List.of("TAP", "PRESS", "RELEASE").contains(action))
       throw Parameters.invalid("Unknown key action " + action);
-    game.client(
-        () -> {
-          keyEvent(event, action.equals("RELEASE") ? 0 : 1);
-          return null;
-        },
-        timeout);
-    if (action.equals("TAP")) {
-      try {
+    boolean keepPressed = false;
+    Throwable failure = null;
+    try {
+      game.client(
+          () -> {
+            keyEvent(event, action.equals("RELEASE") ? 0 : 1);
+            return null;
+          },
+          timeout);
+      if (action.equals("TAP"))
         game.awaitFrames(Parameters.integer(parameters, "frames", 1, 1, 1200), timeout);
-      } finally {
+      keepPressed = action.equals("PRESS") || action.equals("RELEASE");
+    } catch (RuntimeException | Error error) {
+      failure = error;
+      throw error;
+    } finally {
+      if (!keepPressed) {
         io.github.billstark001.minedriver.hooks.InputGate.key(key, false);
         OperationDeadline cleanup = OperationDeadline.cleanup(Duration.ofSeconds(2));
         try {
@@ -149,6 +153,9 @@ final class MinecraftMedia {
                 return null;
               },
               Duration.ofSeconds(2));
+        } catch (RuntimeException | Error cleanupFailure) {
+          if (failure != null) failure.addSuppressed(cleanupFailure);
+          else throw cleanupFailure;
         } finally {
           cleanup.close();
         }
@@ -161,7 +168,7 @@ final class MinecraftMedia {
     Object window = Reflect.call(game.minecraft, "getWindow");
     Object keyboard = Reflect.field(game.minecraft, "keyboardHandler");
     String value = Parameters.string(parameters, "value", null);
-    if (!Reflect.hasMethod(keyboard, "textInput", 2)) {
+    if (!game.sdl()) {
       Class<?> eventType = game.type("net.minecraft.client.input.CharacterEvent");
       value
           .codePoints()
@@ -196,13 +203,5 @@ final class MinecraftMedia {
         };
     if (action == 0) InputIsolation.dispatch(dispatch);
     else game.input.automation(dispatch);
-  }
-
-  private static void setField(Object target, String name, Object value) {
-    try {
-      target.getClass().getField(name).set(target, value);
-    } catch (ReflectiveOperationException error) {
-      throw new DriverException("UNSUPPORTED_API", "Cannot set " + name, error);
-    }
   }
 }

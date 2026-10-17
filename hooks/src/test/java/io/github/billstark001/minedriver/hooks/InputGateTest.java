@@ -55,4 +55,21 @@ class InputGateTest {
     InputGate.blockKey(70, 0);
     InputGate.blockMouse(0, 0);
   }
+
+  @Test
+  void restoredPollingQuarantinesHeldKeysAndRecoversWithoutAReleaseCallback() {
+    InputGate.isolation(true);
+    InputGate.blockKey(71, 1);
+    InputGate.isolation(false);
+    assertFalse(InputGate.polled(71, true));
+    InputGate.rawQuery(true);
+    try {
+      assertTrue(InputGate.polled(71, true));
+    } finally {
+      InputGate.rawQuery(false);
+    }
+    assertFalse(InputGate.polled(71, false));
+    assertTrue(InputGate.polled(71, true));
+    InputGate.physicalKey(71, false);
+  }
 }

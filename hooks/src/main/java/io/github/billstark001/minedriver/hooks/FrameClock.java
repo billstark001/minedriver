@@ -14,6 +14,7 @@ public final class FrameClock {
   private static final AtomicLongArray WORK = new AtomicLongArray(CAPACITY);
   private static final AtomicLongArray SEQUENCE = new AtomicLongArray(CAPACITY);
   private static volatile long started;
+  private static volatile long completedNanos;
   private static long previous;
 
   private FrameClock() {}
@@ -34,11 +35,16 @@ public final class FrameClock {
     WORK.set(index, Math.max(0, System.nanoTime() - start));
     previous = start;
     SEQUENCE.set(index, sequence);
+    completedNanos = System.nanoTime();
     COUNT.set(sequence);
   }
 
   public static long count() {
     return COUNT.get();
+  }
+
+  public static long completedNanos() {
+    return completedNanos;
   }
 
   public record Sample(long sequence, long startedNanos, long intervalNanos, long workNanos) {}

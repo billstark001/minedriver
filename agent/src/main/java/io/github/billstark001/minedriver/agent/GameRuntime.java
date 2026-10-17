@@ -55,6 +55,10 @@ final class GameRuntime {
     return Reflect.type(loader, name);
   }
 
+  Map<String, Object> environmentSnapshot() {
+    return Map.copyOf(environment);
+  }
+
   Object gui() {
     return Reflect.field(minecraft, "gui");
   }
@@ -83,10 +87,21 @@ final class GameRuntime {
     return Reflect.call(minecraft, "getSingleplayerServer");
   }
 
+  boolean sdl() {
+    return switch (environment.get("minecraft").toString()) {
+      case "26.2" -> false;
+      case "26.3" -> true;
+      default ->
+          throw new DriverException(
+              "UNSUPPORTED_API",
+              "No native window/input adapter for Minecraft " + environment.get("minecraft"));
+    };
+  }
+
   boolean focused() {
     long handle =
         ((Number) Reflect.call(Reflect.call(minecraft, "getWindow"), "handle")).longValue();
-    if (environment.get("minecraft").equals("26.3")) {
+    if (sdl()) {
       Class<?> video = type("org.lwjgl.sdl.SDLVideo");
       long flags = ((Number) Reflect.call(video, "SDL_GetWindowFlags", handle)).longValue();
       long inputFocus = ((Number) Reflect.field(video, "SDL_WINDOW_INPUT_FOCUS")).longValue();
@@ -175,12 +190,6 @@ final class GameRuntime {
     var state = new LinkedHashMap<String, Object>(environment);
     state.putAll(observer.observe());
     state.put("runtime", observer.status());
-    Object screen = screen();
-    state.put("screen", screen == null ? null : screen.getClass().getName());
-    state.put(
-        "screenTitle", screen == null ? null : MinecraftUi.text(Reflect.call(screen, "getTitle")));
-    state.put("overlay", overlay() == null ? null : overlay().getClass().getName());
-    state.put("inWorld", level() != null && player() != null);
     state.put("frame", FrameClock.count());
     state.put("frameHook", frames.installed());
     state.put("frameHookFailure", frames.failure());
@@ -205,7 +214,7 @@ final class GameRuntime {
     Object version = Reflect.call(type("net.minecraft.SharedConstants"), "getCurrentVersion");
     result.put("minecraft", Reflect.call(version, "name"));
     result.put("java", System.getProperty("java.version"));
-    result.put("agent", "0.2.0");
+    result.put("agent", io.github.billstark001.minedriver.protocol.BuildInfo.VERSION);
     result.put("loader", "vanilla");
     result.put("development", false);
     try {
@@ -226,9 +235,7 @@ final class GameRuntime {
         Object mods = Reflect.call(type("net.neoforged.fml.ModList"), "get");
         result.put("loader", "neoforge");
         Class<?> environment = type("net.neoforged.fml.loading.FMLEnvironment");
-        Object production = Reflect.optionalField(environment, "production");
-        if (production == null && Reflect.hasMethod(environment, "isProduction", 0))
-          production = Reflect.call(environment, "isProduction");
+        Object production = Reflect.call(environment, "isProduction");
         result.put("development", Boolean.FALSE.equals(production));
         var loaded = new LinkedHashMap<String, String>();
         for (Object metadata : (Iterable<?>) Reflect.call(mods, "getMods"))

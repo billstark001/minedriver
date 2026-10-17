@@ -57,6 +57,16 @@ final class InputTransformer implements ClassFileTransformer {
               if (already.contains(method + desc)) return next;
               return new MethodVisitor(Opcodes.ASM9, next) {
                 @Override
+                public void visitInsn(int opcode) {
+                  if ("poll".equals(hook) && opcode == Opcodes.IRETURN) {
+                    super.visitVarInsn(Opcodes.ILOAD, desc.equals("(I)Z") ? 0 : 1);
+                    super.visitInsn(Opcodes.SWAP);
+                    super.visitMethodInsn(Opcodes.INVOKESTATIC, GATE, "polled", "(IZ)Z", false);
+                  }
+                  super.visitInsn(opcode);
+                }
+
+                @Override
                 public void visitCode() {
                   super.visitCode();
                   if (hook == null) return;
