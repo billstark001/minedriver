@@ -301,7 +301,11 @@ final class DriverSession implements Driver, AutoCloseable {
         true,
         "barrier",
         p -> {
-          MinecraftWorld.await(() -> matches(p), duration(p), Parameters.string(p, "path", null));
+          game.observer.await(
+              "WAITING_CONDITION",
+              () -> matches(p),
+              duration(p),
+              Parameters.string(p, "path", null));
           return true;
         });
     register(
@@ -316,7 +320,8 @@ final class DriverSession implements Driver, AutoCloseable {
         true,
         "barrier",
         p -> {
-          MinecraftWorld.await(
+          game.observer.await(
+              "WAITING_CONDITION",
               () -> {
                 try {
                   game.client(() -> game.ui.select(Parameters.object(p, "selector")), timeout);
@@ -421,45 +426,6 @@ final class DriverSession implements Driver, AutoCloseable {
 
   private Object instance(String name) throws Exception {
     return scenarios.loadClass(name).getConstructor().newInstance();
-  }
-
-  void ready() {
-    MinecraftWorld.await(
-        () ->
-            game.client(
-                () -> {
-                  if (game.overlay() != null || game.screen() == null) return false;
-                  String type = game.screen().getClass().getName();
-                  if (type.endsWith(".TitleScreen")) return true;
-                  if (type.endsWith(".AccessibilityOnboardingScreen")) {
-                    game.ui.activate(Map.of("selector", Map.of("key", "gui.continue")));
-                    return false;
-                  }
-                  if (type.endsWith(".LoadingErrorScreen")) {
-                    var issues = StartupWarnings.read(game);
-                    long start = System.nanoTime();
-                    try {
-                      StartupWarnings.requireAccepted(
-                          issues, config.allowStartupWarnings(), config.acceptedStartupWarnings());
-                      StartupWarnings.proceed(game);
-                      report.step(
-                          "startup.warnings", "startup", System.nanoTime() - start, issues, null);
-                    } catch (RuntimeException failure) {
-                      report.step(
-                          "startup.warnings",
-                          "startup",
-                          System.nanoTime() - start,
-                          issues,
-                          failure);
-                      throw failure;
-                    }
-                    return false;
-                  }
-                  return false;
-                },
-                timeout),
-        Duration.ofMillis(config.timeoutMillis() == 0 ? 300_000 : config.timeoutMillis()),
-        "title screen (startup dialogs are not silently accepted)");
   }
 
   void run(JsonObject plan, List<String> classes) throws Exception {

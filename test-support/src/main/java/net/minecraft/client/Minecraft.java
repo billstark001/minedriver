@@ -67,6 +67,10 @@ public final class Minecraft {
     return new Window();
   }
 
+  public boolean isPaused() {
+    return false;
+  }
+
   public void stop() {
     running = false;
   }
@@ -99,6 +103,10 @@ public final class Minecraft {
   }
 
   public static final class Window {
+    public boolean isFocused() {
+      return true;
+    }
+
     public long handle() {
       return 1;
     }

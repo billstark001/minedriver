@@ -37,8 +37,16 @@ public final class MineDriverAgent {
       if (file == null)
         throw new IllegalArgumentException("Pass -javaagent:agent.jar=absolute/config.json");
       AgentConfig config = AgentConfig.read(Path.of(file));
-      long startedMillis = System.currentTimeMillis();
       Files.createDirectories(config.output());
+      var filesystem =
+          new io.github.billstark001.minedriver.protocol.FileDiagnostics(config.output(), "client");
+      filesystem.capture(
+          "agent-start",
+          config.output().getParent(),
+          config.runDirectory().getParent(),
+          config.output(),
+          config.runDirectory());
+      filesystem.write();
       FileChannel channel =
           FileChannel.open(
               config.output().resolve("session.lock"),
@@ -61,13 +69,14 @@ public final class MineDriverAgent {
       }
       var commands = new CommandRegistry();
       commands.report(report);
-      var state = new java.util.concurrent.atomic.AtomicReference<String>("STARTING");
+      var observer = new RuntimeObserver(config, frames);
+      commands.timeout(Duration.ofMillis(config.operationTimeoutMillis()));
       commands.register(
           "agent.status",
           "Inspect agent startup without waiting for the game",
           true,
           "read",
-          p -> Map.of("state", state.get(), "runId", config.runId()));
+          p -> observer.status());
       var rpc = new RpcServer(commands, config.runId());
       Json.write(config.connectionFile(), rpc.connection());
       var finished = new AtomicBoolean();
@@ -124,43 +133,11 @@ public final class MineDriverAgent {
                 GameRuntime game = null;
                 Throwable failure = null;
                 try {
-                  long deadline =
-                      System.nanoTime()
-                          + Duration.ofMillis(
-                                  config.timeoutMillis() == 0 ? 300_000 : config.timeoutMillis())
-                              .toNanos();
-                  Object minecraft = null;
-                  long nextCrashCheck = System.nanoTime();
-                  while (minecraft == null) {
-                    if (System.nanoTime() >= nextCrashCheck) {
-                      Path crash = StartupCrashReports.find(config.runDirectory(), startedMillis);
-                      if (crash != null)
-                        throw new DriverException(
-                            "STARTUP_CRASH",
-                            "Native client crash report before the first completed frame: "
-                                + crash);
-                      nextCrashCheck = System.nanoTime() + Duration.ofMillis(500).toNanos();
-                    }
-                    if (frames.failure() != null)
-                      throw new DriverException(
-                          "UNSUPPORTED_API", "Frame hook failed: " + frames.failure());
-                    // A completed frame proves Minecraft's class and instance initialization
-                    // finished on the game thread; never initialize its class from this worker.
-                    if (io.github.billstark001.minedriver.hooks.FrameClock.count() > 0)
-                      for (Class<?> type : instrumentation.getAllLoadedClasses())
-                        if (type.getName().equals("net.minecraft.client.Minecraft")) {
-                          minecraft = Reflect.call(type, "getInstance");
-                          break;
-                        }
-                    if (System.nanoTime() >= deadline)
-                      throw new DriverException(
-                          "STARTUP_TIMEOUT", "Minecraft instance did not become available");
-                    if (minecraft == null) GameRuntime.pause();
-                  }
-                  game = new GameRuntime(minecraft, config, frames);
+                  Object minecraft = observer.awaitClient(instrumentation);
+                  game = new GameRuntime(minecraft, config, frames, observer);
                   try (var session = new DriverSession(config, game, commands, report)) {
-                    session.ready();
-                    state.set("READY");
+                    observer.attach(game, report);
+                    observer.awaitTitle();
                     if (config.mode().equals("check"))
                       session.run(config.plan(), config.scenarios());
                     else
@@ -171,8 +148,10 @@ public final class MineDriverAgent {
                   }
                 } catch (Throwable error) {
                   failure = error;
-                  state.set("FAILED");
+                  observer.finish(error);
                 } finally {
+                  filesystem.capture("agent-finish", config.output(), config.runDirectory());
+                  filesystem.write();
                   if (failure != null && game != null) {
                     GameRuntime captured = game;
                     try {
@@ -190,21 +169,19 @@ public final class MineDriverAgent {
                   }
                   if (finished.compareAndSet(false, true)) {
                     try {
-                      report.finish(
-                          failure,
-                          game == null
-                              ? Map.of()
-                              : game.client(game::inspect, Duration.ofSeconds(3)));
+                      report.finish(failure, game == null ? Map.of() : observer.status());
                     } catch (Throwable reportFailure) {
                       reportFailure.printStackTrace(System.err);
                       try {
-                        report.finish(reportFailure, Map.of());
+                        if (failure != null) failure.addSuppressed(reportFailure);
+                        report.finish(failure == null ? reportFailure : failure, observer.status());
                       } catch (Exception ignored) {
                         ignored.printStackTrace(System.err);
                       }
                     }
                   }
-                  state.set(failure == null ? "FINISHED" : "FAILED");
+                  observer.finish(failure);
+                  observer.close();
                   rpc.close();
                   if (game != null) {
                     try {

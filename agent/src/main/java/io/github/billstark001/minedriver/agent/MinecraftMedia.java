@@ -74,8 +74,11 @@ final class MinecraftMedia {
             },
             timeout);
     ((Future<?>) future).get(timeout.toMillis(), TimeUnit.MILLISECONDS);
-    MinecraftWorld.await(
-        () -> game.client(() -> game.overlay() == null, timeout), timeout, "language reload");
+    game.observer.await(
+        "RESOURCE_RELOAD",
+        () -> game.client(() -> game.overlay() == null, timeout),
+        timeout,
+        "language reload");
     game.awaitFrames(2, timeout);
     return game.client(game::inspect, timeout);
   }

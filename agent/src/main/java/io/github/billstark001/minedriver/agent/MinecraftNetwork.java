@@ -69,8 +69,11 @@ final class MinecraftNetwork {
           return null;
         },
         timeout);
-    MinecraftWorld.await(
-        () -> game.client(game::gameplayReady, timeout), timeout, "multiplayer world");
+    game.observer.await(
+        "WORLD_LOADING",
+        () -> game.client(game.observer::gameplayReady, timeout),
+        timeout,
+        "multiplayer world");
     return game.client(() -> inspect(game), timeout);
   }
 }

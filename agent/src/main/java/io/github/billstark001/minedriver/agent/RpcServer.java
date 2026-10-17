@@ -33,8 +33,7 @@ final class RpcServer implements AutoCloseable {
     token = Base64.getUrlEncoder().withoutPadding().encodeToString(random);
     server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 16);
     workers =
-        Executors.newFixedThreadPool(
-            4,
+        Executors.newCachedThreadPool(
             action -> {
               Thread thread = new Thread(action, "MineDriver RPC");
               thread.setDaemon(true);

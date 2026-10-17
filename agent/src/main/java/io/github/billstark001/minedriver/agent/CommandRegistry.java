@@ -24,6 +24,11 @@ final class CommandRegistry {
   private final java.util.concurrent.locks.ReentrantLock actions =
       new java.util.concurrent.locks.ReentrantLock(true);
   private volatile RunReport report;
+  private java.time.Duration timeout = java.time.Duration.ofSeconds(30);
+
+  void timeout(java.time.Duration value) {
+    timeout = value;
+  }
 
   void report(RunReport value) {
     report = value;
@@ -54,11 +59,25 @@ final class CommandRegistry {
         !List.of("agent.status", "scenario.status", "session.commands", "session.close")
             .contains(name);
     long started = System.nanoTime();
-    if (lock) actions.lockInterruptibly();
+    OperationDeadline budget =
+        OperationDeadline.enter(
+            java.time.Duration.ofMillis(
+                Parameters.integer(
+                    parameters, "timeoutMillis", (int) timeout.toMillis(), 1, 3_600_000)));
+    boolean acquired = false;
     try {
+      if (lock) {
+        acquired =
+            actions.tryLock(
+                OperationDeadline.remaining(timeout).toNanos(),
+                java.util.concurrent.TimeUnit.NANOSECONDS);
+        if (!acquired)
+          throw new DriverException(
+              "COMMAND_BUSY", "Command expired while another action was running");
+      }
       if (entry == null) throw new DriverException("UNKNOWN_COMMAND", "Unknown command: " + name);
       Object result = entry.handler().apply(parameters);
-      if (report != null)
+      if (report != null && !name.equals("agent.status") && !name.equals("scenario.status"))
         report.step(name, channel(name), System.nanoTime() - started, result, null);
       return result;
     } catch (Exception | Error failure) {
@@ -66,7 +85,8 @@ final class CommandRegistry {
         report.step(name, channel(name), System.nanoTime() - started, null, failure);
       throw failure;
     } finally {
-      if (lock) actions.unlock();
+      if (acquired) actions.unlock();
+      budget.close();
     }
   }
 

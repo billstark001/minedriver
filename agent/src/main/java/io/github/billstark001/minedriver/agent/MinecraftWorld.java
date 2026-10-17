@@ -25,7 +25,8 @@ final class MinecraftWorld {
           return null;
         },
         timeout);
-    await(
+    game.observer.await(
+        "WORLD_LOADING",
         () ->
             game.client(
                 () ->
@@ -66,7 +67,11 @@ final class MinecraftWorld {
           return null;
         },
         timeout);
-    await(() -> game.client(game::gameplayReady, timeout), timeout, "world ready");
+    game.observer.await(
+        "WORLD_LOADING",
+        () -> game.client(game.observer::gameplayReady, timeout),
+        timeout,
+        "world ready");
     return game.client(game::inspect, timeout);
   }
 
@@ -149,7 +154,8 @@ final class MinecraftWorld {
           return null;
         },
         timeout);
-    await(
+    game.observer.await(
+        "WORLD_LOADING",
         () ->
             game.client(() -> game.level() == null && game.server() == null, timeout)
                 && (server == null || Boolean.TRUE.equals(Reflect.call(server, "isStopped"))),
@@ -227,16 +233,6 @@ final class MinecraftWorld {
               Reflect.call(game.server(), "getTickCount"));
         },
         timeout);
-  }
-
-  static void await(
-      java.util.function.BooleanSupplier condition, Duration timeout, String description) {
-    long deadline = System.nanoTime() + timeout.toNanos();
-    while (!condition.getAsBoolean()) {
-      if (System.nanoTime() >= deadline)
-        throw new DriverException("CONDITION_TIMEOUT", "Timed out waiting for " + description);
-      GameRuntime.pause();
-    }
   }
 
   private static Map<String, Object> map(Object object) {

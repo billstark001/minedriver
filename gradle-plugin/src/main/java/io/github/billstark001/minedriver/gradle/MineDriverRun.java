@@ -90,10 +90,15 @@ public abstract class MineDriverRun extends JavaExec {
     String runId = Instant.now().toEpochMilli() + "-" + UUID.randomUUID();
     Path output = getReportRoot().get().getAsFile().toPath().resolve(runId);
     Path run = getSessionRoot().get().getAsFile().toPath().resolve(runId);
+    var filesystem =
+        new io.github.billstark001.minedriver.protocol.FileDiagnostics(output, "gradle");
+    filesystem.capture("before-create", output.getParent(), run.getParent(), output, run);
     try {
       Files.createDirectories(output);
       Files.createDirectories(run);
       seed(run);
+      filesystem.capture("after-seed", output, run);
+      filesystem.write();
       var config = new LinkedHashMap<String, Object>();
       config.put("protocol", 1);
       config.put("runId", runId);
@@ -165,7 +170,14 @@ public abstract class MineDriverRun extends JavaExec {
         // Verify structured results even when the game returns zero; nonzero also remains a
         // failure.
         setIgnoreExitValue(true);
-        super.exec();
+        filesystem.capture("before-client", output, run);
+        filesystem.write();
+        try {
+          super.exec();
+        } finally {
+          filesystem.capture("after-client", output, run);
+          filesystem.write();
+        }
         ResultVerifier.verify(output.resolve("result.json"), runId);
         if (getExecutionResult().get().getExitValue() != 0)
           throw new GradleException(
@@ -175,6 +187,8 @@ public abstract class MineDriverRun extends JavaExec {
                   + output);
       }
     } catch (IOException error) {
+      filesystem.capture("setup-failed", output, run);
+      filesystem.write();
       throw new GradleException("MineDriver session setup/report failed: " + output, error);
     }
   }

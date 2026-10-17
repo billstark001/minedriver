@@ -135,19 +135,24 @@ class RuntimeSafetyTest {
             "allowProduction",
             true));
     var minecraft = new net.minecraft.client.Minecraft();
-    var game = new GameRuntime(minecraft, AgentConfig.read(config), new FrameTransformer());
-    assertFalse(game.gameplayReady());
+    var game =
+        new GameRuntime(
+            minecraft,
+            AgentConfig.read(config),
+            new FrameTransformer(),
+            new RuntimeObserver(AgentConfig.read(config), new FrameTransformer()));
+    assertFalse(game.observer.gameplayReady());
     minecraft.player = new Object();
-    assertFalse(game.gameplayReady());
+    assertFalse(game.observer.gameplayReady());
     minecraft.level = new Object();
-    assertTrue(game.gameplayReady());
+    assertTrue(game.observer.gameplayReady());
     minecraft.gui.setScreen(new net.minecraft.client.gui.screens.Screen(java.util.List.of()));
-    assertFalse(game.gameplayReady());
+    assertFalse(game.observer.gameplayReady());
     minecraft.gui.setScreen(null);
     minecraft.gui.currentOverlay = new Object();
-    assertFalse(game.gameplayReady());
+    assertFalse(game.observer.gameplayReady());
     minecraft.gui.currentOverlay = null;
-    assertTrue(game.gameplayReady());
+    assertTrue(game.observer.gameplayReady());
   }
 
   @Test

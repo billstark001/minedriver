@@ -21,13 +21,16 @@ final class GameRuntime {
   final MinecraftUi ui;
   final MinecraftWorld world;
   final MinecraftMedia media;
+  final RuntimeObserver observer;
   private final Map<String, Object> environment;
 
-  GameRuntime(Object minecraft, AgentConfig config, FrameTransformer frames) {
+  GameRuntime(
+      Object minecraft, AgentConfig config, FrameTransformer frames, RuntimeObserver observer) {
     this.minecraft = minecraft;
     this.loader = minecraft.getClass().getClassLoader();
     this.config = config;
     this.frames = frames;
+    this.observer = observer;
     environment = client(this::environment, Duration.ofMillis(config.operationTimeoutMillis()));
     String version = environment.get("minecraft").toString();
     if (!List.of("26.2", "26.3").contains(version) && !config.allowUnsupportedRuntime())
@@ -41,6 +44,7 @@ final class GameRuntime {
     ui = new MinecraftUi(this);
     world = new MinecraftWorld(this);
     media = new MinecraftMedia(this);
+    observer.bind(this);
   }
 
   Class<?> type(String name) {
@@ -71,13 +75,6 @@ final class GameRuntime {
     return Reflect.field(minecraft, "level");
   }
 
-  /**
-   * A loaded player/level can precede dismissal of the loading screen and native input readiness.
-   */
-  boolean gameplayReady() {
-    return level() != null && player() != null && screen() == null && overlay() == null;
-  }
-
   Object server() {
     return Reflect.call(minecraft, "getSingleplayerServer");
   }
@@ -100,6 +97,7 @@ final class GameRuntime {
   static <T> T execute(Object executor, Callable<T> action, Duration timeout) {
     if (timeout.isNegative() || timeout.isZero())
       throw Parameters.invalid("Timeout must be positive");
+    Duration remaining = OperationDeadline.remaining(timeout);
     if (Boolean.TRUE.equals(Reflect.call(executor, "isSameThread"))) {
       try {
         return action.call();
@@ -107,13 +105,16 @@ final class GameRuntime {
         throw Reflect.propagate(error);
       }
     }
+    long dispatchDeadline = System.nanoTime() + remaining.toNanos();
+    var started = new java.util.concurrent.atomic.AtomicBoolean();
     var future = new CompletableFuture<T>();
     Reflect.call(
         executor,
         "execute",
         (Runnable)
             () -> {
-              if (future.isCancelled()) return;
+              if (future.isCancelled() || System.nanoTime() >= dispatchDeadline) return;
+              started.set(true);
               try {
                 future.complete(action.call());
               } catch (Throwable error) {
@@ -121,11 +122,16 @@ final class GameRuntime {
               }
             });
     try {
-      return future.get(timeout.toMillis(), TimeUnit.MILLISECONDS);
+      return future.get(remaining.toNanos(), TimeUnit.NANOSECONDS);
     } catch (TimeoutException error) {
       future.cancel(false);
       throw new DriverException(
-          "GAME_THREAD_TIMEOUT", "Game thread did not complete operation in " + timeout, error);
+          "GAME_THREAD_TIMEOUT",
+          "Game thread deadline expired; actionStarted="
+              + started.get()
+              + "; outcome="
+              + (started.get() ? "UNKNOWN (do not blindly retry)" : "NOT_STARTED"),
+          error);
     } catch (InterruptedException error) {
       future.cancel(false);
       Thread.currentThread().interrupt();
@@ -137,6 +143,8 @@ final class GameRuntime {
 
   Map<String, Object> inspect() {
     var state = new LinkedHashMap<String, Object>(environment);
+    state.putAll(observer.observe());
+    state.put("runtime", observer.status());
     Object screen = screen();
     state.put("screen", screen == null ? null : screen.getClass().getName());
     state.put(
@@ -213,7 +221,7 @@ final class GameRuntime {
       throw new DriverException(
           "UNSUPPORTED_API", "Frame barrier unavailable: " + frames.failure());
     long target = FrameClock.count() + count;
-    long deadline = System.nanoTime() + timeout.toNanos();
+    long deadline = System.nanoTime() + OperationDeadline.remaining(timeout).toNanos();
     while (FrameClock.count() < target) {
       if (System.nanoTime() >= deadline)
         throw new DriverException("RENDER_TIMEOUT", "No completed frame before deadline");
