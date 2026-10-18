@@ -131,7 +131,7 @@ Two external test conditions remain explicit:
 - Music Control's ordinary-client world creation with the tested Fabric API's GameTest modules loaded without a configured test run hit a native dynamic-test initialization error. That fixture opts into `fabric.debug.disableModIds` for `fabric-gametest-api-v1` and `fabric-client-gametest-api-v1`. MineDriver does not automatically disable them; the correctly configured native GameTest project runs them successfully.
 - World Mirror's optional Xaero bridge declared a required map dependency absent in that checkout. Core UI validation disables `xaero_world_map_bridge`, `xaeroworldmap` and `xaerominimap`; map behavior is outside this test.
 
-Production/unclassified runtimes and unknown versions require explicit opt-ins and remain experimental. Dedicated-server connection, other operating systems, direct device access by mods, GPU timing, versions outside the explicit matrix, Yarn/intermediary names, hot reload and broad live-launch configuration-cache compatibility are not claimed. Standard Windows game-input isolation and background execution have the October 18 coverage above; it does not establish all OS focus transitions or minimized rendering behavior. Native UI flags and standard text/item render states do not capture arbitrary custom-rendered controls or occlusion. Stable visual baselines require controlled resources/language/layout/world conditions and review.
+Production/unclassified runtimes and unknown versions require explicit opt-ins and remain experimental. Dedicated-server connection, other operating systems, direct device access by mods, GPU timing, versions outside the explicit matrix, production/intermediary names, hot reload and broad live-launch configuration-cache compatibility are not claimed. Standard Windows game-input isolation and background execution have the October 18 coverage above; it does not establish all OS focus transitions or minimized rendering behavior. Native UI flags and standard text/item render states do not capture arbitrary custom-rendered controls or occlusion. Stable visual baselines require controlled resources/language/layout/world conditions and review.
 
 ## Extended runtime matrix (October 18, unreleased)
 
@@ -150,7 +150,7 @@ Run the matrices sequentially from the repository root:
 
 The runner checks a successful Gradle/client exit and a matching run ID with `complete=true` / `status=PASS`, and writes summaries/logs under `build/reports/minedriver/compatibility/<loader>/`. Per-run reports and screenshots remain in each fixture's `build/reports/minedriver/mineDriverCheck/<runId>/`. Run root builds and composite fixtures sequentially because they share compiler outputs; the matrix runner rejects overlapping matrix processes.
 
-Older Fabric fixtures use `net.fabricmc.fabric-loom-remap` and `loom.officialMojangMappings()`, following the [upstream Loom plugin distinction](https://docs.fabricmc.net/develop/loom/#plugin-ids). Yarn/intermediary/production namespaces are not remapped by the agent. Minecraft 1.21.1's rendered geometry comes from its immediate GUI calls and current pose/scissor; later versions use extracted native render states. Legacy Cloth entries lacking a native layout rectangle retain null layout bounds; category hit rectangles and native child-widget geometry remain available.
+The original older Fabric matrix uses `net.fabricmc.fabric-loom-remap` and `loom.officialMojangMappings()`, following the [upstream Loom plugin distinction](https://docs.fabricmc.net/develop/loom/#plugin-ids). The additional Yarn validation below uses the same plugin with the project's native Yarn mappings. Production/intermediary runtimes are not adapted. Minecraft 1.21.1's rendered geometry comes from its immediate GUI calls and current pose/scissor; later versions use extracted native render states. Legacy Cloth entries lacking a native layout rectangle retain null layout bounds; category hit rectangles and native child-widget geometry remain available.
 
 <!-- compatibility-matrix-runs -->
 
@@ -165,3 +165,42 @@ Older Fabric fixtures use `net.fabricmc.fabric-loom-remap` and `loom.officialMoj
 All ten runs completed with matching fresh PASS results and successful process exits. The final root `check build` passed all 64 JVM tests with zero failures/errors; regression coverage includes legacy callback verification/quarantine, chopped polling frames, remapped covariant methods, DevLaunch argument expansion and native launcher environment preservation.
 
 <!-- /compatibility-matrix-runs -->
+
+## Yarn development mappings (October 18, unreleased)
+
+After the runtime-extension commits, Fabric 1.21.1 and 1.21.11 additionally passed with their native Yarn mappings. The fixtures compile the separate `src/yarn/java` scenarios directly against `MinecraftClient`, `TextFieldWidget`, `InputUtil` and the version's native keyboard callbacks. They run the same input, UI/render, resource, background movement, world/inventory and Cloth assertions as the original matrix, plus checks for an active `named` bridge, actual Yarn class names and canonical Mojang type selectors. Development/version/input guards remain enabled. The generated mapping data stays under the consuming fixture's build directory.
+
+```powershell
+.\scripts\verify-compatibility.ps1 -Loader fabric -Mappings yarn
+# Single project/version:
+.\gradlew.bat -p integration/compatibility/fabric mineDriverCheck -PmcVersion=1.21.11 -Pmappings=yarn
+# Rebuild the mapping bridge offline after its official mappings have been cached:
+.\gradlew.bat -p integration/compatibility/fabric mineDriverMappings -PmcVersion=1.21.11 -Pmappings=yarn --offline --rerun-tasks
+```
+
+The matrix runner verifies the requested mapping namespace as well as runtime/version, matching run ID, complete PASS and successful process exit. Yarn summaries/logs are separate at `build/reports/minedriver/compatibility/fabric/yarn/`; Mojang summaries remain under `fabric/`. Screenshots and paired UI JSON are in each run's `screenshots/` directory.
+
+| Minecraft | Yarn | Fabric Loader | Cloth | Complete PASS run ID |
+| --- | --- | --- | --- | --- |
+| 1.21.1 | 1.21.1+build.3 | 0.19.5 | 15.0.140 | `1792323408978-59682c2a-6a3b-4a7d-afbd-64e08cdb2ca7` |
+| 1.21.11 | 1.21.11+build.6 | 0.19.5 | 21.11.153 | `1792323502941-3144fb16-9bc5-43ae-b517-cea7f9b8a9d1` |
+
+The JVM regressions additionally cover canonical reflection and mod overrides, round-trip frame/polling transformation without changing the runtime namespace, long window-handle locals, descriptor/inherited Tiny joins, identity mappings without a download, and rejection of a tampered cache in offline preparation.
+
+Additional Mojang-name regressions completed with fresh matching PASS results and successful process exits:
+
+| Loader | Minecraft | Complete PASS run ID |
+| --- | --- | --- |
+| Fabric | 1.21.1 | `1792323725959-4231f6b3-3183-49f4-aa30-2d65115f06a1` |
+| Fabric | 1.21.11 | `1792323759644-6f017087-db0c-415a-a7d1-c62f627f04a1` |
+| Fabric | 26.1.2 | `1792323796534-582a831a-91bd-4e66-8d08-df1dc7fdebea` |
+| Fabric | 26.2 | `1792323847715-0b7a14bd-da2f-4e75-b55d-749c3d34df8d` |
+| Fabric | 26.3 | `1792324407909-1b01dae4-80b6-4cb7-a548-cb44124c790f` |
+| NeoForge | 1.21.1 | `1792324479553-4b0fcc1b-0ece-49c9-99d0-59217d5c886a` |
+| NeoForge | 26.3 | `1792324530664-8ef54f12-a2a5-413a-beff-4260440703c4` |
+
+During this regression, Fabric 26.3 runs `1792323894824-476de4a7-4a62-4309-8671-3440c46ee03f`, `1792323978146-3a8086d1-b030-44ee-b368-9eaecec04487` and `1792324334329-b32fda50-6791-425b-8182-d30e1ae7e4d7` exited during resource loading without a result. Windows Application Error events recorded native access violations (`0xc0000005`, unknown module / `jvm.dll`); these attempts remain failures. A control using the prior agent passed (`1792324235614-55bd3be2-5083-4c67-ab66-87f25eba94fd`). The implementation now keeps Mojang identity names on the original direct transformer/reflection/callback paths; the subsequent Fabric and NeoForge 26.3 runs above passed. The exact native crash mechanism was not established; the successful reruns do not constitute a general JDK/SDL stability guarantee. Per-attempt client logs remain under their run IDs.
+
+The actual 1.21.11 Yarn bridge also regenerated successfully with `--offline --rerun-tasks` using its verified cached official mappings.
+
+The final root `format check build` passed all 68 JVM tests with zero failures/errors. No mapping data or connection secrets are included in the commits.

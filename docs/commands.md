@@ -15,7 +15,7 @@
 }
 ```
 
-Selectors accept any combination of `key`, `label`, `type`, `path`, `stableId`, with AND/exact matching. At least one must be present. `type` is the full Java class name; `path` begins at `0` and follows child indices, for example `0/3/1`. Prefer translation keys or explicit stable IDs for multilingual tests. Labels and tree paths can change with language/layout. Zero matches, multiple matches and hidden/disabled matches are distinct failures.
+Selectors accept any combination of `key`, `label`, `type`, `path`, `stableId`, with AND/exact matching. At least one must be present. `type` is the full Java class name; Minecraft classes use canonical Mojang names even in a Yarn development runtime (for example `net.minecraft.client.gui.components.EditBox`). Mod class names retain their native names. `path` begins at `0` and follows child indices, for example `0/3/1`. Prefer translation keys or explicit stable IDs for multilingual tests. Labels and tree paths can change with language/layout. Zero matches, multiple matches and hidden/disabled matches are distinct failures.
 
 `ui.snapshot` is the single UI inspection command. It returns a snapshot object, not a flat list:
 
@@ -31,7 +31,7 @@ Selectors accept any combination of `key`, `label`, `type`, `path`, `stableId`, 
 | Command | Parameters and behavior |
 | --- | --- |
 | `agent.status` | Cached lifecycle state/phase, awaited condition, screen/overlay, actual focus, pause/readiness, heartbeat/snapshot age and last failure. Never waits for the game thread or action lock. |
-| `session.inspect` | Game/Java/loader/mod versions, development flag, screen/title/overlay, language, frame/fps/timing and player/dimension when present. |
+| `session.inspect` | Game/Java/loader/mod versions, development flag, `mappingNamespace` (`mojang` or Loom `named`), screen/title/overlay, language, frame/fps/timing and player/dimension when present. |
 | `session.commands` | Descriptions and parameter schemas. |
 | `session.capabilities` | Supported runtime versions, installed frame/render hooks, input isolation/background policy and explicit experimental switches. |
 | `session.close` | Ends interactive session; refuses while a scenario is running. Closing rejects queued/new ordinary actions with `SESSION_CLOSED`; cached status/discovery remain available during cleanup. |

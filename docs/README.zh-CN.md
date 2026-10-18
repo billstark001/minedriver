@@ -110,7 +110,9 @@ MCP stdio server 使用上述程序，参数为 `latest.json` 路径和 `mcp`。
 
 ## 使用边界
 
-明确适配 Minecraft **1.21.1、1.21.11、26.1.2、26.2、26.3**，实测组合见[验证记录](validation.md)。1.21.1/1.21.11 的 Fabric 开发项目须使用 `net.fabricmc.fabric-loom-remap` 和 Mojang mappings（`mappings loom.officialMojangMappings()`）；Yarn 命名、生产环境和 intermediary 命名不在该适配矩阵内。生产或无法识别的环境默认拒绝，`allowProduction=true` 可实验性尝试，未知版本还需 `allowUnsupportedRuntime=true`。
+明确适配 Minecraft **1.21.1、1.21.11、26.1.2、26.2、26.3**，实测组合见[验证记录](validation.md)。1.21.1/1.21.11 的 Fabric 开发项目使用 `net.fabricmc.fabric-loom-remap`，兼容 Mojang 和 Yarn mappings（实测 Loom 1.17.11）。可以保留 `mappings loom.officialMojangMappings()`，也可使用 `mappings 'net.fabricmc:yarn:1.21.1+build.3:v2'` 或 `mappings 'net.fabricmc:yarn:1.21.11+build.6:v2'`，无需额外配置 MineDriver。
+
+插件自动通过 `mineDriverMappings` 生成名称桥。Java 场景按接入项目的实际 mappings 编写，MineDriver 命令、类型选择器和快照中的 Minecraft 类名统一使用 Mojang 名称。Yarn 首次准备需要下载官方客户端 mappings 并校验 Mojang 提供的 SHA-1；缓存和生成文件位于接入项目的 `build/minedriver/mappings/`，准备后可以离线复用，映射数据不打进发布 JAR。生产环境和 intermediary 命名不在该适配矩阵内。生产或无法识别的环境默认拒绝，`allowProduction=true` 可实验性尝试，未知版本还需 `allowUnsupportedRuntime=true`。
 
 统一观察器负责启动、标题页及世界加载；`agent.status` 不等待游戏线程或普通命令锁，会保留当前阻塞界面、快照/帧心跳年龄、真实焦点、暂停和最后失败阶段。并发等待各自登记和清理，帧心跳直接来自完成帧，关闭阶段拒绝排队或新动作。命令排队及各级等待共享同一截止时间；已开始的回调超时后结果可能未确定，不应直接重试。截图附带同名 `.ui.json` 和请求/完成帧号。
 

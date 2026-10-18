@@ -66,6 +66,17 @@ mineDriver {
 
 Copy [title-smoke.json](examples/plans/title-smoke.json) to the plan path, then run `mineDriverCheck`. In a multi-project build configure the loader subproject and invoke its qualified task, such as `:versions:fabric-26.3:mineDriverCheck`.
 
+Fabric 1.21.1/1.21.11 projects can keep either Mojang or Yarn mappings with Loom's `net.fabricmc.fabric-loom-remap` plugin. MineDriver automatically prepares the project's names through `mineDriverMappings`; no extra MineDriver setting is needed. For example, a Yarn project keeps its existing mapping dependency:
+
+```groovy
+dependencies {
+    mappings 'net.fabricmc:yarn:1.21.1+build.3:v2'
+    // For 1.21.11: net.fabricmc:yarn:1.21.11+build.6:v2
+}
+```
+
+Java scenarios use the consuming project's native names. MineDriver commands, type selectors and reported Minecraft class names use Mojang names in either development mapping environment. Yarn launches cache the official client mappings (verified against Mojang's SHA-1) and a generated bridge under `build/minedriver/mappings/`; after preparation these can be reused offline. Mapping data stays local to the consuming project and is not included in the published JARs.
+
 The source must be a `JavaExec` client task. MineDriver copies its prerequisites, classpath, main class, Java launcher, arguments and environment, then replaces the game directory and injects its agent. It does not also execute the source task. Applying the plugin does not change ordinary `runClient`, `check` or release tasks.
 
 Every invocation creates its own directories:
@@ -146,7 +157,7 @@ The JSON plan runs before Java scenarios. Use `extensionClasses`, because Gradle
 
 ## Support and development
 
-Current runtime adapters support **Minecraft 1.21.1, 1.21.11, 26.1.2, 26.2 and 26.3**, with the tested combinations in [validation](docs/validation.md). Driver artifacts target Java 17 bytecode; building this project and running the tested game integrations uses JDK 25. Fabric development projects on 1.21.1/1.21.11 must use Mojang mappings (`mappings loom.officialMojangMappings()`) and the `net.fabricmc.fabric-loom-remap` plugin. Yarn-named and production/intermediary runtimes are outside this adapter matrix.
+Current runtime adapters support **Minecraft 1.21.1, 1.21.11, 26.1.2, 26.2 and 26.3**, with the tested combinations in [validation](docs/validation.md). Driver artifacts target Java 17 bytecode; building this project and running the tested game integrations uses JDK 25. Fabric development projects on 1.21.1/1.21.11 support Mojang and Yarn mappings with the `net.fabricmc.fabric-loom-remap` plugin (tested with Loom 1.17.11). Production/intermediary runtimes remain outside this adapter matrix.
 
 Development detection is required by default. `allowProduction=true` opts into experimental production/unclassified use; `allowUnsupportedRuntime=true` separately opts into unknown versions. Neither provides compatibility guarantees or a sandbox. Java scenarios execute trusted code in the game process.
 
