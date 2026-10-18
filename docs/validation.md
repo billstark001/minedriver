@@ -131,4 +131,37 @@ Two external test conditions remain explicit:
 - Music Control's ordinary-client world creation with the tested Fabric API's GameTest modules loaded without a configured test run hit a native dynamic-test initialization error. That fixture opts into `fabric.debug.disableModIds` for `fabric-gametest-api-v1` and `fabric-client-gametest-api-v1`. MineDriver does not automatically disable them; the correctly configured native GameTest project runs them successfully.
 - World Mirror's optional Xaero bridge declared a required map dependency absent in that checkout. Core UI validation disables `xaero_world_map_bridge`, `xaeroworldmap` and `xaerominimap`; map behavior is outside this test.
 
-Production/unclassified runtimes and unknown versions require explicit opt-ins and remain experimental. Dedicated-server connection, other operating systems, direct device access by mods, GPU timing, older obfuscated versions, hot reload and broad live-launch configuration-cache compatibility are not claimed. Standard Windows game-input isolation and background execution have the October 18 coverage above; it does not establish all OS focus transitions or minimized rendering behavior. Native UI flags and standard text/item render states do not capture arbitrary custom-rendered controls or occlusion. Stable visual baselines require controlled resources/language/layout/world conditions and review.
+Production/unclassified runtimes and unknown versions require explicit opt-ins and remain experimental. Dedicated-server connection, other operating systems, direct device access by mods, GPU timing, versions outside the explicit matrix, Yarn/intermediary names, hot reload and broad live-launch configuration-cache compatibility are not claimed. Standard Windows game-input isolation and background execution have the October 18 coverage above; it does not establish all OS focus transitions or minimized rendering behavior. Native UI flags and standard text/item render states do not capture arbitrary custom-rendered controls or occlusion. Stable visual baselines require controlled resources/language/layout/world conditions and review.
+
+## Extended runtime matrix (October 18, unreleased)
+
+The compatibility fixtures in `integration/compatibility` exercise working-tree changes after 0.3.0 using JDK 25.0.2, Gradle 9.5.0, Loom 1.17.11 / Fabric Loader 0.19.5 or ModDevGradle 2.0.147. Their shared scenarios compile against each actual runtime. No production or unsupported-version opt-in is enabled.
+
+Each run asserts title/options navigation, semantic activation, native character input into an EditBox, external ESC filtering, virtual key polling/release, complete version-specific isolation hooks, rendered text/item geometry, validated PNG plus UI capture, Chinese/English resource reload, actual hidden-window focus loss, background server-confirmed movement, fixture blocks/inventory, server-confirmed slot pickup/replacement, world saving/disconnection, and native/semantic Cloth category expansion. Cloth versions are 15.0.140, 21.11.153, 26.1.154, 26.2.155 and 26.3.159 respectively. The NeoForge 26.2 row accepts only the already diagnosed exact Cloth metadata warning from `integration/neoforge/fixtures/accepted-cloth26.2.json`.
+
+Run the matrices sequentially from the repository root:
+
+```powershell
+.\scripts\verify-compatibility.ps1 -Loader fabric
+.\scripts\verify-compatibility.ps1 -Loader neoforge
+# Optional subset:
+.\scripts\verify-compatibility.ps1 -Loader fabric -MinecraftVersions '1.21.1','1.21.11','26.1.2'
+```
+
+The runner checks a successful Gradle/client exit and a matching run ID with `complete=true` / `status=PASS`, and writes summaries/logs under `build/reports/minedriver/compatibility/<loader>/`. Per-run reports and screenshots remain in each fixture's `build/reports/minedriver/mineDriverCheck/<runId>/`. Run root builds and composite fixtures sequentially because they share compiler outputs; the matrix runner rejects overlapping matrix processes.
+
+Older Fabric fixtures use `net.fabricmc.fabric-loom-remap` and `loom.officialMojangMappings()`, following the [upstream Loom plugin distinction](https://docs.fabricmc.net/develop/loom/#plugin-ids). Yarn/intermediary/production namespaces are not remapped by the agent. Minecraft 1.21.1's rendered geometry comes from its immediate GUI calls and current pose/scissor; later versions use extracted native render states. Legacy Cloth entries lacking a native layout rectangle retain null layout bounds; category hit rectangles and native child-widget geometry remain available.
+
+<!-- compatibility-matrix-runs -->
+
+| Minecraft | Fabric run ID | NeoForge | NeoForge run ID |
+| --- | --- | --- | --- |
+| 1.21.1 | `1792320173199-0d8756b8-4ef9-4ad0-87df-4fa2bc5d0d7a` | 21.1.262 | `1792320417576-3ba05753-654c-4f60-aeaa-419a074dee58` |
+| 1.21.11 | `1792320210292-4b44f1ce-d4ca-4c96-a4fd-19908441acd1` | 21.11.44 | `1792320595762-d34ad897-48e0-4106-8868-ecd14a4fcbd9` |
+| 26.1.2 | `1792320262688-397b410a-2d8e-446b-813a-c627d2f69a78` | 26.1.2.87 | `1792320777651-7512fe57-4dbe-44ee-8676-88c648280fd4` |
+| 26.2 | `1792320313773-6d17ecc2-eedc-4e57-936f-edcd78e42c19` | 26.2.0.88 | `1792320821669-16974c1f-ced5-40f8-bd2a-b66236bbac65` |
+| 26.3 | `1792320366730-96cb9a72-d363-4831-8677-647e2fef3fb4` | 26.3.0.48-beta | `1792320875451-2743da0a-374b-4b8d-ab94-3e9626cb549a` |
+
+All ten runs completed with matching fresh PASS results and successful process exits. The final root `check build` passed all 64 JVM tests with zero failures/errors; regression coverage includes legacy callback verification/quarantine, chopped polling frames, remapped covariant methods, DevLaunch argument expansion and native launcher environment preservation.
+
+<!-- /compatibility-matrix-runs -->

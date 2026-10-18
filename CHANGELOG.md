@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+- Extend the explicit runtime matrix with Minecraft 26.1.2, 1.21.11 and 1.21.1 alongside 26.2/26.3. Add native input, character events, screenshots, screen ownership, world teardown and legacy immediate-render adapters; older Fabric development projects use Mojang mappings.
+- Preserve key polling across chopped stack-map locals and handle remapped covariant methods while retaining ambiguous-overload rejection. Expand NeoForge DevLaunch program argument files before replacing the isolated game directory, and retain native loader environment variables when cloning launches.
+- Add repeatable Fabric/NeoForge compatibility fixtures with native input isolation, text entry, resource reload, background movement, server assertions, inventory clicks and version-matched Cloth controls.
+
 ## [0.3.0] - 2026-10-18
 
 - Derive agent/MCP identity, manifests, artifact names and consumer init-script paths from the single `gradle.properties` version through generated build metadata.

@@ -146,7 +146,7 @@ The JSON plan runs before Java scenarios. Use `extensionClasses`, because Gradle
 
 ## Support and development
 
-Current runtime adapters support **Minecraft 26.2 and 26.3**, with the tested combinations in [validation](docs/validation.md). Driver artifacts target Java 17 bytecode; building this project and running the tested game integrations uses JDK 25. Older obfuscated versions require additional mappings/adapters.
+Current runtime adapters support **Minecraft 1.21.1, 1.21.11, 26.1.2, 26.2 and 26.3**, with the tested combinations in [validation](docs/validation.md). Driver artifacts target Java 17 bytecode; building this project and running the tested game integrations uses JDK 25. Fabric development projects on 1.21.1/1.21.11 must use Mojang mappings (`mappings loom.officialMojangMappings()`) and the `net.fabricmc.fabric-loom-remap` plugin. Yarn-named and production/intermediary runtimes are outside this adapter matrix.
 
 Development detection is required by default. `allowProduction=true` opts into experimental production/unclassified use; `allowUnsupportedRuntime=true` separately opts into unknown versions. Neither provides compatibility guarantees or a sandbox. Java scenarios execute trusted code in the game process.
 

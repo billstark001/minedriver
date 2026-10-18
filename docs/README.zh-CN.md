@@ -110,7 +110,7 @@ MCP stdio server 使用上述程序，参数为 `latest.json` 路径和 `mcp`。
 
 ## 使用边界
 
-明确适配 Minecraft 26.2、26.3 的已验证组合。生产或无法识别的环境默认拒绝，`allowProduction=true` 可实验性尝试，未知版本还需 `allowUnsupportedRuntime=true`。旧版混淆环境需要额外适配。
+明确适配 Minecraft **1.21.1、1.21.11、26.1.2、26.2、26.3**，实测组合见[验证记录](validation.md)。1.21.1/1.21.11 的 Fabric 开发项目须使用 `net.fabricmc.fabric-loom-remap` 和 Mojang mappings（`mappings loom.officialMojangMappings()`）；Yarn 命名、生产环境和 intermediary 命名不在该适配矩阵内。生产或无法识别的环境默认拒绝，`allowProduction=true` 可实验性尝试，未知版本还需 `allowUnsupportedRuntime=true`。
 
 统一观察器负责启动、标题页及世界加载；`agent.status` 不等待游戏线程或普通命令锁，会保留当前阻塞界面、快照/帧心跳年龄、真实焦点、暂停和最后失败阶段。并发等待各自登记和清理，帧心跳直接来自完成帧，关闭阶段拒绝排队或新动作。命令排队及各级等待共享同一截止时间；已开始的回调超时后结果可能未确定，不应直接重试。截图附带同名 `.ui.json` 和请求/完成帧号。
 

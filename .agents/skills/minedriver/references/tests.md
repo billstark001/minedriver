@@ -13,7 +13,7 @@ Start with the installed command schemas and actual inspected state. A screensho
 
 ## Integrate with the consuming project
 
-Identify the loader subproject and its existing `JavaExec` client task. MineDriver uses JDK 25 and explicitly supports Minecraft 26.2/26.3; verify other versions against the local checkout's compatibility documentation. It is not yet published to the Plugin Portal.
+Identify the loader subproject and its existing `JavaExec` client task. MineDriver uses JDK 25 and explicitly supports Minecraft 1.21.1, 1.21.11, 26.1.2, 26.2 and 26.3. Fabric 1.21.1/1.21.11 requires Mojang mappings and `net.fabricmc.fabric-loom-remap`; Yarn/intermediary names are not adapted. Verify actual combinations against the local checkout's compatibility documentation. It is not yet published to the Plugin Portal.
 
 Merge into the existing `pluginManagement` block in the mod project's `settings.gradle`:
 
