@@ -102,6 +102,7 @@ public final class MineDriverPlugin implements Plugin<Project> {
         .getGradle()
         .projectsEvaluated(
             ignored -> {
+              LoomMappings.prepare(project);
               check.configure(task -> cloneRun(project, extension.getSourceRunTask().get(), task));
               interactive.configure(
                   task -> cloneRun(project, extension.getSourceRunTask().get(), task));
@@ -204,6 +205,7 @@ public final class MineDriverPlugin implements Plugin<Project> {
     target.dependsOn(source.getDependsOn());
     target.setClasspath(source.getClasspath());
     target.getSourceWorkingDirectory().set(source.getWorkingDir());
+    LoomMappings.configure(project, target);
     target.setEnvironment(source.getEnvironment());
     LoaderLaunchAdapters.copy(source, target);
     target.getMainClass().set(source.getMainClass());

@@ -2,6 +2,8 @@ plugins { id 'java-gradle-plugin' }
 base { archivesName = 'minedriver-gradle-plugin' }
 dependencies {
     implementation project(':protocol')
+    implementation 'net.fabricmc:mapping-io:0.8.0'
+    implementation 'org.ow2.asm:asm:9.8'
     testImplementation gradleTestKit()
     testImplementation project(':test-support')
 }

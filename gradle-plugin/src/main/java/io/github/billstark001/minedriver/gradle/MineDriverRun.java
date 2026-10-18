@@ -34,6 +34,11 @@ public abstract class MineDriverRun extends JavaExec {
 
   @Optional
   @InputFile
+  @PathSensitive(PathSensitivity.NONE)
+  public abstract RegularFileProperty getRuntimeMappings();
+
+  @Optional
+  @InputFile
   @PathSensitive(PathSensitivity.RELATIVE)
   public abstract RegularFileProperty getPlan();
 
@@ -118,6 +123,8 @@ public abstract class MineDriverRun extends JavaExec {
       config.put("unsafeReflection", getUnsafeReflection().get());
       config.put("inputIsolation", getInputIsolation().get());
       config.put("backgroundExecution", getBackgroundExecution().get());
+      if (getRuntimeMappings().isPresent())
+        config.put("runtimeMappings", getRuntimeMappings().get().getAsFile().getAbsolutePath());
       config.put("scenarios", getScenarios().get());
       config.put("extensions", getExtensionClasses().get());
       config.put(
