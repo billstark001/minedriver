@@ -6,7 +6,6 @@ import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
-import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.UUID;
@@ -88,6 +87,9 @@ public abstract class MineDriverRun extends JavaExec {
   @Internal
   public abstract DirectoryProperty getReportRoot();
 
+  @Internal
+  public abstract DirectoryProperty getSourceWorkingDirectory();
+
   @Override
   public void exec() {
     String runId = Instant.now().toEpochMilli() + "-" + UUID.randomUUID();
@@ -148,7 +150,11 @@ public abstract class MineDriverRun extends JavaExec {
               "connectionFile",
               output.resolve("connection.json").toAbsolutePath().toString()));
       setWorkingDir(run.toFile());
-      List<String> args = new ArrayList<>(getArgs() == null ? List.of() : getArgs());
+      List<String> args =
+          LoaderLaunchAdapters.arguments(
+              getMainClass().get(),
+              getArgs() == null ? List.of() : getArgs(),
+              getSourceWorkingDirectory().get().getAsFile().toPath());
       for (int i = 0; i < args.size(); i++)
         if (args.get(i).equals("--gameDir")) {
           if (i + 1 >= args.size()) throw new GradleException("Invalid upstream --gameDir");

@@ -72,6 +72,61 @@ class PluginFunctionalTest {
   }
 
   @Test
+  void loaderEnvironmentIsMergedAfterTheOrdinaryJavaExecEnvironment() throws Exception {
+    var runner = fixture("[{\"command\":\"session.inspect\"}]");
+    Path buildSrc = temporary.resolve("buildSrc");
+    Path taskSource =
+        buildSrc.resolve("src/main/java/net/neoforged/moddevgradle/internal/RunGameTask.java");
+    Files.createDirectories(taskSource.getParent());
+    Files.writeString(
+        buildSrc.resolve("build.gradle"),
+        "plugins { id 'java' }; dependencies { implementation gradleApi() }\n");
+    Files.writeString(
+        taskSource,
+        """
+        package net.neoforged.moddevgradle.internal;
+        import org.gradle.api.tasks.*;
+        import org.gradle.api.file.*;
+        import org.gradle.api.provider.MapProperty;
+        public abstract class RunGameTask extends JavaExec {
+          @Input public abstract MapProperty<String, String> getEnvironmentProperty();
+          @Internal public abstract ConfigurableFileCollection getClasspathProvider();
+          @Internal public abstract DirectoryProperty getGameDirectory();
+        }
+        """);
+    Path scenario = temporary.resolve("src/minedriver/java/example/Environment.java");
+    Files.createDirectories(scenario.getParent());
+    Files.writeString(
+        scenario,
+        """
+        package example;
+        import io.github.billstark001.minedriver.api.*;
+        public final class Environment implements Scenario {
+          public void run(ProbeContext context) {
+            context.require("native".equals(System.getenv("MINEDRIVER_NATIVE")), "Native loader environment survives cloning");
+            context.require("ordinary".equals(System.getenv("MINEDRIVER_ORDINARY")), "Ordinary environment survives cloning");
+          }
+        }
+        """);
+    Path build = temporary.resolve("build.gradle");
+    Files.writeString(
+        build,
+        Files.readString(build)
+                .replace(
+                    "tasks.register('runClient', JavaExec)",
+                    "tasks.register('runClient', net.neoforged.moddevgradle.internal.RunGameTask)")
+            + """
+        tasks.named('runClient') {
+          environment 'MINEDRIVER_ORDINARY', 'ordinary'
+          environmentProperty.put('MINEDRIVER_NATIVE', 'native')
+          gameDirectory.set(layout.projectDirectory.dir('native run'))
+        }
+        mineDriver.scenarios.add('example.Environment')
+        """);
+    assertEquals(TaskOutcome.SUCCESS, runner.build().task(":mineDriverCheck").getOutcome());
+  }
+
+  @Test
   void scenariosStayOutOfMainJarAndConfigurationCacheCanBeReused() throws Exception {
     var runner = fixture("[{\"command\":\"session.inspect\"}]");
     Path scenario = temporary.resolve("src/minedriver/java/example/Separate.java");

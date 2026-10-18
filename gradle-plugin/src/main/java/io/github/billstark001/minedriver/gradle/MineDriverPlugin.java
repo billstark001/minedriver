@@ -203,11 +203,12 @@ public final class MineDriverPlugin implements Plugin<Project> {
       throw new GradleException("MineDriver cannot clone another MineDriver task");
     target.dependsOn(source.getDependsOn());
     target.setClasspath(source.getClasspath());
+    target.getSourceWorkingDirectory().set(source.getWorkingDir());
+    target.setEnvironment(source.getEnvironment());
     LoaderLaunchAdapters.copy(source, target);
     target.getMainClass().set(source.getMainClass());
     target.getMainModule().set(source.getMainModule());
     target.getJavaLauncher().set(source.getJavaLauncher());
-    target.setEnvironment(source.getEnvironment());
     var arguments =
         new ArrayList<>(source.getArgs() == null ? List.<String>of() : source.getArgs());
     source

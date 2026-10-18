@@ -1,8 +1,17 @@
 package io.github.billstark001.minedriver.gradle;
 
+import java.io.IOException;
+import java.io.StreamTokenizer;
 import java.lang.reflect.Method;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import org.gradle.api.GradleException;
+import org.gradle.api.file.DirectoryProperty;
 import org.gradle.api.file.FileCollection;
 import org.gradle.api.provider.Provider;
 import org.gradle.api.tasks.JavaExec;
@@ -11,8 +20,51 @@ import org.gradle.api.tasks.JavaExec;
 final class LoaderLaunchAdapters {
   private LoaderLaunchAdapters() {}
 
+  /** Expand DevLaunch's application @files before replacing --gameDir, preserving its syntax. */
+  static List<String> arguments(String mainClass, List<String> arguments, Path directory)
+      throws IOException {
+    if (!mainClass.equals("net.neoforged.devlaunch.Main")) return new ArrayList<>(arguments);
+    var expanded = new ArrayList<String>();
+    for (String argument : arguments) expand(argument, directory, new HashSet<>(), expanded);
+    // DevLaunch still runs; protect literal @ arguments from being expanded a second time.
+    return new ArrayList<>(
+        expanded.stream().map(value -> value.startsWith("@") ? "@" + value : value).toList());
+  }
+
+  private static void expand(
+      String argument, Path directory, Set<Path> visited, List<String> output) throws IOException {
+    if (!argument.startsWith("@") || argument.equals("@")) {
+      output.add(argument);
+      return;
+    }
+    if (argument.startsWith("@@")) {
+      output.add(argument.substring(1));
+      return;
+    }
+    Path file = directory.resolve(argument.substring(1)).toAbsolutePath().normalize();
+    if (!Files.isReadable(file)) {
+      output.add(argument);
+      return;
+    }
+    if (!visited.add(file)) return;
+    try (var reader = Files.newBufferedReader(file)) {
+      var tokens = new StreamTokenizer(reader);
+      tokens.resetSyntax();
+      tokens.wordChars(32, 255);
+      tokens.whitespaceChars(0, 32);
+      tokens.quoteChar('"');
+      tokens.quoteChar('\'');
+      tokens.commentChar('#');
+      while (tokens.nextToken() != StreamTokenizer.TT_EOF)
+        expand(tokens.sval, directory, visited, output);
+    }
+  }
+
   static void copy(JavaExec source, MineDriverRun target) {
     if (source.getClass().getName().startsWith("net.neoforged.moddevgradle.internal.RunGameTask")) {
+      target
+          .getSourceWorkingDirectory()
+          .set(((DirectoryProperty) property(source, "getGameDirectory")).get());
       target.classpath((FileCollection) property(source, "getClasspathProvider"));
       Object environment = ((Provider<?>) property(source, "getEnvironmentProperty")).get();
       if (environment instanceof Map<?, ?> values)
