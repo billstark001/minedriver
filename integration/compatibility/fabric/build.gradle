@@ -5,13 +5,16 @@ plugins {
 }
 def minecraftVersion = providers.gradleProperty('mcVersion').getOrElse('26.1.2')
 def obfuscated = minecraftVersion in ['1.21.1', '1.21.11']
+def mappingKind = providers.gradleProperty('mappings').getOrElse('mojang')
+if (!(mappingKind in ['mojang', 'yarn']) || (mappingKind == 'yarn' && !obfuscated)) throw new GradleException("Unsupported mapping fixture: ${minecraftVersion}/${mappingKind}")
 apply plugin: obfuscated ? 'net.fabricmc.fabric-loom-remap' : 'net.fabricmc.fabric-loom'
 repositories { mavenCentral(); maven { url = 'https://maven.shedaniel.me/' } }
 java { toolchain.languageVersion = JavaLanguageVersion.of(25) }
 dependencies {
     minecraft "com.mojang:minecraft:${minecraftVersion}"
     if (obfuscated) {
-        mappings loom.officialMojangMappings()
+        if (mappingKind == 'yarn') mappings "net.fabricmc:yarn:${['1.21.1': '1.21.1+build.3', '1.21.11': '1.21.11+build.6'][minecraftVersion]}:v2"
+        else mappings loom.officialMojangMappings()
         modImplementation 'net.fabricmc:fabric-loader:0.19.5'
         modImplementation "me.shedaniel.cloth:cloth-config-fabric:${['1.21.1': '15.0.140', '1.21.11': '21.11.153'][minecraftVersion]}"
     } else {
@@ -19,7 +22,7 @@ dependencies {
         implementation "me.shedaniel.cloth:cloth-config-fabric:${['26.1.2': '26.1.154', '26.2': '26.2.155', '26.3': '26.3.159'][minecraftVersion]}"
     }
 }
-sourceSets.minedriver.java.srcDir('../src/minedriver/java')
+sourceSets.minedriver.java.srcDir(mappingKind == 'yarn' ? '../src/yarn/java' : '../src/minedriver/java')
 mineDriver {
     scenarios.add('example.CompatibilityScenario')
     scenarios.add('example.CompatibilityClothScenario')

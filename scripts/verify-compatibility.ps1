@@ -2,13 +2,23 @@ param(
     [ValidateSet('fabric', 'neoforge')]
     [string]$Loader = 'fabric',
     [ValidateSet('1.21.1', '1.21.11', '26.1.2', '26.2', '26.3')]
-    [string[]]$MinecraftVersions = @('1.21.1', '1.21.11', '26.1.2', '26.2', '26.3')
+    [string[]]$MinecraftVersions = @('1.21.1', '1.21.11', '26.1.2', '26.2', '26.3'),
+    [ValidateSet('mojang', 'yarn')]
+    [string]$Mappings = 'mojang'
 )
 
 $ErrorActionPreference = 'Stop'
+if ($Mappings -eq 'yarn') {
+    if ($Loader -ne 'fabric') { throw 'Yarn mappings require the Fabric fixture.' }
+    if (!$PSBoundParameters.ContainsKey('MinecraftVersions')) { $MinecraftVersions = @('1.21.1', '1.21.11') }
+    if ($MinecraftVersions | Where-Object { $_ -notin @('1.21.1', '1.21.11') }) {
+        throw 'The Yarn fixture supports Minecraft 1.21.1 and 1.21.11.'
+    }
+}
 $compatibilityRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 $fixture = Join-Path $compatibilityRoot "integration/compatibility/$Loader"
 $output = Join-Path $compatibilityRoot "build/reports/minedriver/compatibility/$Loader"
+if ($Mappings -eq 'yarn') { $output = Join-Path $output 'yarn' }
 New-Item -ItemType Directory -Force -Path $output | Out-Null
 $lockFile = Join-Path $compatibilityRoot 'build/reports/minedriver/compatibility/verification.lock'
 try {
@@ -22,6 +32,7 @@ try {
     foreach ($minecraftVersion in $MinecraftVersions) {
         $log = Join-Path $output "$minecraftVersion.log"
         $arguments = @('-p', $fixture, 'mineDriverCheck', "-PmcVersion=$minecraftVersion", '--console=plain')
+        if ($Loader -eq 'fabric') { $arguments += "-Pmappings=$Mappings" }
         if ($Loader -eq 'neoforge' -and $minecraftVersion -eq '26.2') {
             # This exact Cloth metadata warning was diagnosed in docs/validation.md.
             $arguments += '-PacceptedWarningsFile=../../neoforge/fixtures/accepted-cloth26.2.json'
@@ -43,9 +54,14 @@ try {
         if ($result.environment.minecraft -ne $minecraftVersion -or $result.environment.loader -ne $Loader) {
             throw "Compatibility runtime differs from the requested target: $Loader / $minecraftVersion. Report: $resultFile"
         }
+        $expectedNamespace = if ($Mappings -eq 'yarn') { 'named' } else { 'mojang' }
+        if ($result.environment.mappingNamespace -ne $expectedNamespace) {
+            throw "Compatibility mapping namespace differs from the requested target: $Mappings. Report: $resultFile"
+        }
         $records += [PSCustomObject]@{
             loader = $Loader
             minecraft = $minecraftVersion
+            mappings = $Mappings
             runId = $result.runId
             complete = $result.complete
             status = $result.status
@@ -53,7 +69,7 @@ try {
             log = $log
         }
         ConvertTo-Json -Depth 8 -InputObject $records | Set-Content -Encoding utf8 (Join-Path $output 'results.json')
-        Write-Output "PASS $Loader / $minecraftVersion / $($result.runId)"
+        Write-Output "PASS $Loader / $minecraftVersion / $Mappings / $($result.runId)"
     }
 } finally {
     $compatibilityLock.Dispose()
