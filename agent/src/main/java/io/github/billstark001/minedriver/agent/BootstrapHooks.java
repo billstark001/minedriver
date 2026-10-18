@@ -1,6 +1,7 @@
 package io.github.billstark001.minedriver.agent;
 
 import java.io.IOException;
+import java.lang.instrument.ClassFileTransformer;
 import java.lang.instrument.Instrumentation;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -18,24 +19,13 @@ final class BootstrapHooks {
     }
     instrumentation.appendToBootstrapClassLoaderSearch(new JarFile(jar.toFile()));
     var transformer = new FrameTransformer();
-    instrumentation.addTransformer(transformer, true);
-    instrumentation.addTransformer(new InputTransformer(), true);
-    instrumentation.addTransformer(new VisualTransformer(), true);
-    instrumentation.addTransformer(new LegacyVisualTransformer(), true);
+    RuntimeNames names = RuntimeNames.current();
+    instrumentation.addTransformer(adapt(transformer, names), true);
+    instrumentation.addTransformer(adapt(new InputTransformer(), names), true);
+    instrumentation.addTransformer(adapt(new VisualTransformer(), names), true);
+    instrumentation.addTransformer(adapt(new LegacyVisualTransformer(), names), true);
     for (Class<?> type : instrumentation.getAllLoadedClasses()) {
-      if (java.util.Set.of(
-              "net.minecraft.client.Minecraft",
-              "net.minecraft.client.KeyboardHandler",
-              "net.minecraft.client.MouseHandler",
-              "com.mojang.blaze3d.platform.InputConstants",
-              "com.mojang.blaze3d.platform.Window",
-              "com.mojang.blaze3d.platform.SDLEventHandler",
-              "net.minecraft.client.renderer.state.gui.GuiTextRenderState",
-              "net.minecraft.client.renderer.state.gui.GuiItemRenderState",
-              "net.minecraft.client.gui.render.state.GuiTextRenderState",
-              "net.minecraft.client.gui.render.state.GuiItemRenderState",
-              "net.minecraft.client.gui.GuiGraphics")
-          .contains(type.getName())) {
+      if (MappedTransformer.target(type)) {
         try {
           instrumentation.retransformClasses(type);
         } catch (java.lang.instrument.UnmodifiableClassException error) {
@@ -44,5 +34,9 @@ final class BootstrapHooks {
       }
     }
     return transformer;
+  }
+
+  private static ClassFileTransformer adapt(ClassFileTransformer transformer, RuntimeNames names) {
+    return names.mapped() ? new MappedTransformer(transformer, names) : transformer;
   }
 }

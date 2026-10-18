@@ -42,7 +42,7 @@ final class VisualCapture implements VisualHooks.Listener, AutoCloseable {
     seen.put(state, true);
     try {
       var value = new LinkedHashMap<String, Object>();
-      String type = state.getClass().getName();
+      String type = Reflect.className(state.getClass());
       boolean text = type.endsWith(".GuiTextRenderState");
       value.put("type", text ? "text" : "item");
       value.put("clippedBounds", rectangle(bounds));
@@ -97,7 +97,7 @@ final class VisualCapture implements VisualHooks.Listener, AutoCloseable {
             game.loader,
             new Class<?>[] {game.type("net.minecraft.util.FormattedCharSink")},
             (proxy, method, arguments) -> {
-              if (method.getName().equals("accept")) {
+              if (Reflect.methodName(method).equals("accept")) {
                 string.appendCodePoint(((Number) arguments[2]).intValue());
                 return true;
               }

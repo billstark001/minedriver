@@ -26,7 +26,7 @@ final class UiGeometry {
 
   static boolean is(Object value, String name) {
     for (Class<?> type = value.getClass(); type != null; type = type.getSuperclass())
-      if (type.getName().equals(name)) return true;
+      if (Reflect.className(type).equals(name)) return true;
     return false;
   }
 

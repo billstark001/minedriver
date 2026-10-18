@@ -106,7 +106,7 @@ final class RuntimeObserver implements AutoCloseable {
         if (FrameClock.count() > 0) {
           // Never initialize Minecraft from the observer before the game completes initialization.
           for (Class<?> type : instrumentation.getAllLoadedClasses())
-            if (type.getName().equals("net.minecraft.client.Minecraft")) {
+            if (Reflect.className(type).equals("net.minecraft.client.Minecraft")) {
               Object instance = Reflect.call(type, "getInstance");
               if (instance != null) return instance;
             }
@@ -164,10 +164,10 @@ final class RuntimeObserver implements AutoCloseable {
     Object overlay = game.overlay();
     boolean focused = game.focused();
     boolean inWorld = game.level() != null && game.player() != null;
-    value.put("screen", screen == null ? null : screen.getClass().getName());
+    value.put("screen", screen == null ? null : Reflect.className(screen.getClass()));
     value.put(
         "screenTitle", screen == null ? null : MinecraftUi.text(Reflect.call(screen, "getTitle")));
-    value.put("overlay", overlay == null ? null : overlay.getClass().getName());
+    value.put("overlay", overlay == null ? null : Reflect.className(overlay.getClass()));
     value.put("focused", focused);
     value.put("input", game.input.status());
     value.put("paused", Reflect.call(game.minecraft, "isPaused"));
@@ -198,7 +198,7 @@ final class RuntimeObserver implements AutoCloseable {
                 () -> {
                   Object screen = game.screen();
                   if (screen == null || game.overlay() != null) return false;
-                  String name = screen.getClass().getName();
+                  String name = Reflect.className(screen.getClass());
                   if (name.equals("net.minecraft.client.gui.screens.TitleScreen")) return true;
                   if (name.equals("net.minecraft.client.gui.screens.AccessibilityOnboardingScreen"))
                     game.ui.activate(Map.of("selector", Map.of("key", "gui.continue")));
@@ -233,7 +233,7 @@ final class RuntimeObserver implements AutoCloseable {
   private void requireUnblocked() {
     Object screen = game.screen();
     if (screen == null) return;
-    String name = screen.getClass().getName();
+    String name = Reflect.className(screen.getClass());
     if (name.equals("net.neoforged.neoforge.client.gui.LoadingErrorScreen")) {
       var issues = NeoForgeIssues.read(game);
       long start = System.nanoTime();

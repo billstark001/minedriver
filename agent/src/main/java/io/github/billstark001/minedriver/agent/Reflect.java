@@ -14,7 +14,8 @@ final class Reflect {
 
   static Class<?> type(ClassLoader loader, String name) {
     try {
-      return Class.forName(name, true, loader);
+      return Class.forName(
+          RuntimeNames.current().actual(name.replace('.', '/')).replace('/', '.'), true, loader);
     } catch (ClassNotFoundException error) {
       throw new DriverException("UNSUPPORTED_API", "Class unavailable: " + name, error);
     }
@@ -25,7 +26,7 @@ final class Reflect {
     List<Method> matches = new ArrayList<>();
     List<Method> bridges = new ArrayList<>();
     for (Method method : type.getMethods()) {
-      if (!method.getName().equals(name)) continue;
+      if (!methodName(method).equals(name)) continue;
       if (target instanceof Class<?> && !Modifier.isStatic(method.getModifiers())) continue;
       if (matches(method.getParameterTypes(), arguments)) {
         if (method.isBridge()) bridges.add(method);
@@ -87,7 +88,20 @@ final class Reflect {
   /** Only for explicitly versioned native callbacks; never exposed as a general RPC command. */
   static Object callback(Object target, String name, Class<?>[] signature, Object... arguments) {
     try {
-      Method method = target.getClass().getDeclaredMethod(name, signature);
+      Method method;
+      if (!RuntimeNames.current().mapped()) {
+        method = target.getClass().getDeclaredMethod(name, signature);
+      } else {
+        List<Method> methods =
+            java.util.Arrays.stream(target.getClass().getDeclaredMethods())
+                .filter(
+                    candidate ->
+                        methodName(candidate).equals(name)
+                            && java.util.Arrays.equals(candidate.getParameterTypes(), signature))
+                .toList();
+        if (methods.size() != 1) throw new NoSuchMethodException(name);
+        method = methods.get(0);
+      }
       if (!method.trySetAccessible()) throw new IllegalAccessException(method.toString());
       return method.invoke(target, arguments);
     } catch (InvocationTargetException error) {
@@ -140,7 +154,7 @@ final class Reflect {
   static boolean hasMethod(Object target, String name, int arity) {
     Class<?> type = target instanceof Class<?> clazz ? clazz : target.getClass();
     for (Method method : type.getMethods())
-      if (method.getName().equals(name) && method.getParameterCount() == arity) return true;
+      if (methodName(method).equals(name) && method.getParameterCount() == arity) return true;
     return false;
   }
 
@@ -148,7 +162,7 @@ final class Reflect {
     Class<?> type = object instanceof Class<?> clazz ? clazz : object.getClass();
     for (Class<?> cursor = type; cursor != null; cursor = cursor.getSuperclass()) {
       try {
-        var field = cursor.getDeclaredField(name);
+        var field = cursor.getDeclaredField(RuntimeNames.current().fieldName(cursor, name));
         Object instance = object instanceof Class<?> ? null : object;
         if (!field.canAccess(instance) && !field.trySetAccessible()) break;
         return field.get(instance);
@@ -175,7 +189,7 @@ final class Reflect {
   static void set(Object object, String name, Object value) {
     for (Class<?> type = object.getClass(); type != null; type = type.getSuperclass()) {
       try {
-        var field = type.getDeclaredField(name);
+        var field = type.getDeclaredField(RuntimeNames.current().fieldName(type, name));
         if (!field.trySetAccessible()) break;
         field.set(object, value);
         return;
@@ -192,5 +206,17 @@ final class Reflect {
     if (error instanceof RuntimeException runtime) return runtime;
     if (error instanceof Error fatal) throw fatal;
     return new DriverException("GAME_EXCEPTION", error.toString(), error);
+  }
+
+  static String className(Class<?> type) {
+    return RuntimeNames.current().className(type);
+  }
+
+  static String methodName(Method method) {
+    return RuntimeNames.current().methodName(method);
+  }
+
+  static String fieldName(java.lang.reflect.Field field) {
+    return RuntimeNames.current().fieldName(field);
   }
 }

@@ -175,10 +175,10 @@ final class InputIsolation implements AutoCloseable {
     InputGate.rawQuery(true);
     try {
       for (var field : constants.getFields()) {
-        if (!field.getName().startsWith("KEY_")
+        if (!Reflect.fieldName(field).startsWith("KEY_")
             || field.getType() != int.class
             || !Modifier.isStatic(field.getModifiers())) continue;
-        int key = ((Number) Reflect.field(constants, field.getName())).intValue();
+        int key = ((Number) Reflect.field(constants, Reflect.fieldName(field))).intValue();
         if (key < 0 || key >= 512) continue;
         boolean down = game.adapter.keyDown(game, window, key);
         InputGate.physicalKey(key, down);

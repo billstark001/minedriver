@@ -95,7 +95,7 @@ final class MinecraftUi {
         new Node(
             path,
             identity(widget),
-            widget.getClass().getName(),
+            Reflect.className(widget.getClass()),
             text(component),
             key(component),
             active,
@@ -150,7 +150,7 @@ final class MinecraftUi {
     Object screen = game.screen();
     var snapshot = new LinkedHashMap<String, Object>();
     snapshot.put("frame", io.github.billstark001.minedriver.hooks.FrameClock.count());
-    snapshot.put("screen", screen == null ? null : screen.getClass().getName());
+    snapshot.put("screen", screen == null ? null : Reflect.className(screen.getClass()));
     snapshot.put("screenId", screenId());
     snapshot.put("coordinateSpace", "gui");
     snapshot.put("viewport", viewport());
@@ -166,7 +166,9 @@ final class MinecraftUi {
     Object screen = game.screen();
     return screen == null
         ? null
-        : screen.getClass().getName() + "@" + Integer.toHexString(System.identityHashCode(screen));
+        : Reflect.className(screen.getClass())
+            + "@"
+            + Integer.toHexString(System.identityHashCode(screen));
   }
 
   Object expand(Map<String, Object> parameters) {

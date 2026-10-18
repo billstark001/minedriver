@@ -36,6 +36,14 @@ final class GameRuntime {
     this.observer = observer;
     environment = client(this::environment, Duration.ofMillis(config.operationTimeoutMillis()));
     String version = environment.get("minecraft").toString();
+    if (RuntimeNames.current().minecraft() != null
+        && !version.equals(RuntimeNames.current().minecraft()))
+      throw new DriverException(
+          "UNSUPPORTED_RUNTIME",
+          "Runtime mappings belong to Minecraft "
+              + RuntimeNames.current().minecraft()
+              + ", running "
+              + version);
     if (!MinecraftAdapter.VERSIONS.contains(version) && !config.allowUnsupportedRuntime())
       throw new DriverException(
           "UNSUPPORTED_RUNTIME",
@@ -218,6 +226,7 @@ final class GameRuntime {
         Reflect.call(version, Reflect.hasMethod(version, "name", 0) ? "name" : "getName"));
     result.put("java", System.getProperty("java.version"));
     result.put("agent", io.github.billstark001.minedriver.protocol.BuildInfo.VERSION);
+    result.put("mappingNamespace", RuntimeNames.current().namespace());
     result.put("loader", "vanilla");
     result.put("development", false);
     try {

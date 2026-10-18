@@ -25,6 +25,7 @@ record AgentConfig(
     List<String> scenarios,
     List<String> extensions,
     List<String> scenarioClasspath,
+    Path runtimeMappings,
     JsonObject plan) {
   static AgentConfig read(Path file) throws IOException {
     JsonObject json = Json.read(file).getAsJsonObject();
@@ -48,6 +49,7 @@ record AgentConfig(
             "scenarios",
             "extensions",
             "scenarioClasspath",
+            "runtimeMappings",
             "plan");
     for (String field : json.keySet())
       if (!fields.contains(field))
@@ -83,6 +85,9 @@ record AgentConfig(
         strings(json, "scenarios"),
         strings(json, "extensions"),
         strings(json, "scenarioClasspath"),
+        json.has("runtimeMappings")
+            ? Path.of(text(json, "runtimeMappings", null)).toAbsolutePath().normalize()
+            : null,
         json.has("plan") ? json.getAsJsonObject("plan") : new JsonObject());
   }
 

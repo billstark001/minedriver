@@ -27,7 +27,8 @@ final class MinecraftWorld {
             game.client(
                 () ->
                     game.screen() != null
-                        && game.screen().getClass().getName().endsWith(".CreateWorldScreen"),
+                        && Reflect.className(game.screen().getClass())
+                            .endsWith(".CreateWorldScreen"),
                 timeout),
         timeout,
         "world creation screen");

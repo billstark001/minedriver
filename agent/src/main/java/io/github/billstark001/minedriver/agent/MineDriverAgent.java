@@ -60,6 +60,7 @@ public final class MineDriverAgent {
       var report = new RunReport(config);
       FrameTransformer frames;
       try {
+        RuntimeNames.install(config.runtimeMappings());
         frames = BootstrapHooks.install(instrumentation, config.output());
       } catch (Throwable failure) {
         report.finish(failure, Map.of());
