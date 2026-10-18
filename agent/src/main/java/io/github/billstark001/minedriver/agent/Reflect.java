@@ -35,6 +35,20 @@ final class Reflect {
     // Java emits public visibility bridges for methods inherited from non-public parents.
     // Retain those only when there is no compatible non-bridge implementation.
     if (matches.isEmpty()) matches.addAll(bridges);
+    // Remapped older clients can retain covariant overrides without ACC_BRIDGE. Only collapse
+    // identical parameter signatures with a strictly more specific return type; overloads remain
+    // ambiguous and must never be chosen by declaration order.
+    List<Method> candidates = List.copyOf(matches);
+    matches.removeIf(
+        method ->
+            candidates.stream()
+                .anyMatch(
+                    other ->
+                        other != method
+                            && java.util.Arrays.equals(
+                                method.getParameterTypes(), other.getParameterTypes())
+                            && method.getReturnType() != other.getReturnType()
+                            && method.getReturnType().isAssignableFrom(other.getReturnType())));
     if (matches.size() != 1)
       throw new DriverException(
           "UNSUPPORTED_API",

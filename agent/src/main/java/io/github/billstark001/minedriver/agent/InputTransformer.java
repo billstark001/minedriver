@@ -6,6 +6,7 @@ import java.security.ProtectionDomain;
 import java.util.HashSet;
 import java.util.Set;
 import org.objectweb.asm.*;
+import org.objectweb.asm.commons.LocalVariablesSorter;
 
 /** Exact native signatures for the supported GLFW and SDL clients. */
 final class InputTransformer implements ClassFileTransformer {
@@ -16,6 +17,7 @@ final class InputTransformer implements ClassFileTransformer {
   private static final String MOUSE = "net/minecraft/client/MouseHandler";
   private static final String SDL = "com/mojang/blaze3d/platform/SDLEventHandler";
   private static final String EVENT = "net/minecraft/client/input/KeyEvent";
+  private static final String MINECRAFT = "net/minecraft/client/Minecraft";
 
   @Override
   public byte[] transform(
@@ -25,7 +27,7 @@ final class InputTransformer implements ClassFileTransformer {
       Class<?> type,
       ProtectionDomain domain,
       byte[] bytes) {
-    if (!Set.of(INPUT, WINDOW, KEYBOARD, MOUSE, SDL).contains(name)) return null;
+    if (!Set.of(INPUT, WINDOW, KEYBOARD, MOUSE, SDL, MINECRAFT).contains(name)) return null;
     try {
       var reader = new ClassReader(bytes);
       Set<String> already = new HashSet<>();
@@ -55,11 +57,13 @@ final class InputTransformer implements ClassFileTransformer {
               String hook = hook(name, method, desc);
               if (hook != null) InputGate.installed(hook);
               if (already.contains(method + desc)) return next;
-              return new MethodVisitor(Opcodes.ASM9, next) {
+              PollingLocals polling =
+                  "poll".equals(hook) ? new PollingLocals(access, desc, next) : null;
+              return new MethodVisitor(Opcodes.ASM9, polling == null ? next : polling) {
                 @Override
                 public void visitInsn(int opcode) {
                   if ("poll".equals(hook) && opcode == Opcodes.IRETURN) {
-                    super.visitVarInsn(Opcodes.ILOAD, desc.equals("(I)Z") ? 0 : 1);
+                    polling.loadKey();
                     super.visitInsn(Opcodes.SWAP);
                     super.visitMethodInsn(Opcodes.INVOKESTATIC, GATE, "polled", "(IZ)Z", false);
                   }
@@ -73,18 +77,26 @@ final class InputTransformer implements ClassFileTransformer {
                   changes[0]++;
                   Label original = new Label();
                   if (hook.equals("key")) {
-                    super.visitVarInsn(Opcodes.ALOAD, 4);
-                    super.visitMethodInsn(Opcodes.INVOKEVIRTUAL, EVENT, "key", "()I", false);
-                    super.visitVarInsn(Opcodes.ILOAD, 3);
+                    if (desc.equals("(JIIII)V")) {
+                      super.visitVarInsn(Opcodes.ILOAD, 3);
+                      super.visitVarInsn(Opcodes.ILOAD, 5);
+                    } else {
+                      super.visitVarInsn(Opcodes.ALOAD, 4);
+                      super.visitMethodInsn(Opcodes.INVOKEVIRTUAL, EVENT, "key", "()I", false);
+                      super.visitVarInsn(Opcodes.ILOAD, 3);
+                    }
                     super.visitMethodInsn(Opcodes.INVOKESTATIC, GATE, "blockKey", "(II)Z", false);
                   } else if (hook.equals("button")) {
-                    super.visitVarInsn(Opcodes.ALOAD, 3);
-                    super.visitMethodInsn(
-                        Opcodes.INVOKEVIRTUAL,
-                        "net/minecraft/client/input/MouseButtonInfo",
-                        "button",
-                        "()I",
-                        false);
+                    if (desc.equals("(JIII)V")) super.visitVarInsn(Opcodes.ILOAD, 3);
+                    else {
+                      super.visitVarInsn(Opcodes.ALOAD, 3);
+                      super.visitMethodInsn(
+                          Opcodes.INVOKEVIRTUAL,
+                          "net/minecraft/client/input/MouseButtonInfo",
+                          "button",
+                          "()I",
+                          false);
+                    }
                     super.visitVarInsn(Opcodes.ILOAD, 4);
                     super.visitMethodInsn(Opcodes.INVOKESTATIC, GATE, "blockMouse", "(II)Z", false);
                   } else {
@@ -98,7 +110,7 @@ final class InputTransformer implements ClassFileTransformer {
                   }
                   super.visitJumpInsn(Opcodes.IFEQ, original);
                   if (hook.equals("poll")) {
-                    super.visitVarInsn(Opcodes.ILOAD, desc.equals("(I)Z") ? 0 : 1);
+                    super.visitVarInsn(Opcodes.ILOAD, pollKeySlot(desc));
                     super.visitMethodInsn(Opcodes.INVOKESTATIC, GATE, "keyDown", "(I)Z", false);
                     super.visitInsn(Opcodes.IRETURN);
                   } else if (hook.equals("focus")) {
@@ -106,7 +118,8 @@ final class InputTransformer implements ClassFileTransformer {
                     super.visitInsn(Opcodes.IRETURN);
                   } else super.visitInsn(Opcodes.RETURN);
                   super.visitLabel(original);
-                  super.visitFrame(Opcodes.F_SAME, 0, null, 0, null);
+                  Object[] locals = initialLocals(name, access, desc);
+                  super.visitFrame(Opcodes.F_NEW, locals.length, locals, 0, new Object[0]);
                 }
 
                 @Override
@@ -129,7 +142,7 @@ final class InputTransformer implements ClassFileTransformer {
               };
             }
           },
-          0);
+          ClassReader.EXPAND_FRAMES);
       return changes[0] == 0 ? null : writer.toByteArray();
     } catch (RuntimeException failure) {
       InputGate.failure(name + ": " + failure);
@@ -139,26 +152,30 @@ final class InputTransformer implements ClassFileTransformer {
 
   private static String hook(String owner, String method, String descriptor) {
     if (owner.equals(INPUT)) {
-      if (method.equals("isKeyDown") && Set.of("(I)Z", "(L" + WINDOW + ";I)Z").contains(descriptor))
-        return "poll";
-      if (method.equals("grabOrReleaseMouse") && descriptor.equals("(L" + WINDOW + ";IDD)V"))
-        return "grab";
+      if (method.equals("isKeyDown")
+          && Set.of("(I)Z", "(JI)Z", "(L" + WINDOW + ";I)Z").contains(descriptor)) return "poll";
+      if (method.equals("grabOrReleaseMouse")
+          && Set.of("(JIDD)V", "(L" + WINDOW + ";IDD)V").contains(descriptor)) return "grab";
       if (method.equals("grabMouse") && descriptor.equals("(L" + WINDOW + ";DD)V")) return "grab";
       if (method.equals("releaseMouse") && descriptor.equals("(L" + WINDOW + ";DD)V"))
         return "release";
     }
     if (owner.equals(WINDOW) && method.equals("isFocused") && descriptor.equals("()Z"))
       return "focus";
+    if (owner.equals(MINECRAFT) && method.equals("isWindowActive") && descriptor.equals("()Z"))
+      return "focus";
     if (owner.equals(KEYBOARD)) {
-      if (method.equals("keyPress") && descriptor.equals("(JIL" + EVENT + ";)V")) return "key";
+      if (method.equals("keyPress")
+          && Set.of("(JIIII)V", "(JIL" + EVENT + ";)V").contains(descriptor)) return "key";
       if (method.equals("charTyped")
-          && descriptor.equals("(JLnet/minecraft/client/input/CharacterEvent;)V"))
-        return "character";
+          && Set.of("(JII)V", "(JLnet/minecraft/client/input/CharacterEvent;)V")
+              .contains(descriptor)) return "character";
       if (method.equals("textInput") && descriptor.equals("(JLjava/lang/String;)V")) return "text";
       if (Set.of("textEditing", "preeditCallback").contains(method)
           && descriptor.equals("(JLnet/minecraft/client/input/PreeditEvent;)V")) return "preedit";
     }
     if (owner.equals(MOUSE)) {
+      if (method.equals("onPress") && descriptor.equals("(JIII)V")) return "button";
       if (method.equals("onButton")
           && descriptor.equals("(JLnet/minecraft/client/input/MouseButtonInfo;I)V"))
         return "button";
@@ -171,5 +188,49 @@ final class InputTransformer implements ClassFileTransformer {
       if (method.equals("resyncMousePosition") && descriptor.equals("()V")) return "cursor";
     }
     return null;
+  }
+
+  private static int pollKeySlot(String descriptor) {
+    return descriptor.equals("(I)Z") ? 0 : descriptor.equals("(JI)Z") ? 2 : 1;
+  }
+
+  private static Object[] initialLocals(String owner, int access, String descriptor) {
+    var locals = new java.util.ArrayList<Object>();
+    if ((access & Opcodes.ACC_STATIC) == 0) locals.add(owner);
+    for (Type argument : Type.getArgumentTypes(descriptor)) {
+      locals.add(
+          switch (argument.getSort()) {
+            case Type.LONG -> Opcodes.LONG;
+            case Type.DOUBLE -> Opcodes.DOUBLE;
+            case Type.FLOAT -> Opcodes.FLOAT;
+            case Type.OBJECT -> argument.getInternalName();
+            case Type.ARRAY -> argument.getDescriptor();
+            default -> Opcodes.INTEGER;
+          });
+    }
+    return locals.toArray();
+  }
+
+  /** Mojang's older bytecode drops argument locals at its return merge. Keep a live copy. */
+  private static final class PollingLocals extends LocalVariablesSorter {
+    private final String descriptor;
+    private int key;
+
+    PollingLocals(int access, String descriptor, MethodVisitor next) {
+      super(Opcodes.ASM9, access, descriptor, next);
+      this.descriptor = descriptor;
+    }
+
+    @Override
+    public void visitCode() {
+      super.visitCode();
+      key = newLocal(Type.INT_TYPE);
+      super.visitVarInsn(Opcodes.ILOAD, pollKeySlot(descriptor));
+      mv.visitVarInsn(Opcodes.ISTORE, key);
+    }
+
+    void loadKey() {
+      mv.visitVarInsn(Opcodes.ILOAD, key);
+    }
   }
 }

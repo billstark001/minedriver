@@ -171,7 +171,7 @@ final class DriverSession implements Driver, AutoCloseable {
         p ->
             Map.of(
                 "runtimeVersions",
-                List.of("26.2", "26.3"),
+                MinecraftAdapter.VERSIONS,
                 "frameBarrier",
                 game.frames.installed(),
                 "reflection",

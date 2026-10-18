@@ -50,20 +50,7 @@ final class VisualCapture implements VisualHooks.Listener, AutoCloseable {
       Object original;
       Object pose;
       if (text) {
-        StringBuilder string = new StringBuilder();
-        Object sink =
-            Proxy.newProxyInstance(
-                game.loader,
-                new Class<?>[] {game.type("net.minecraft.util.FormattedCharSink")},
-                (proxy, method, arguments) -> {
-                  if (method.getName().equals("accept")) {
-                    string.appendCodePoint(((Number) arguments[2]).intValue());
-                    return true;
-                  }
-                  return null;
-                });
-        Reflect.call(Reflect.field(state, "text"), "accept", sink);
-        value.put("text", string.toString());
+        value.put("text", text(game, Reflect.field(state, "text")));
         original = Reflect.call(Reflect.call(state, "ensurePrepared"), "bounds");
         pose = Reflect.field(state, "pose");
       } else {
@@ -86,6 +73,38 @@ final class VisualCapture implements VisualHooks.Listener, AutoCloseable {
     } catch (RuntimeException error) {
       failure = error.toString();
     }
+  }
+
+  @Override
+  public void legacy(Object graphics, Object font, Object content, int x, int y) {
+    if (pending.size() >= 8192) {
+      dropped++;
+      return;
+    }
+    try {
+      Map<String, Object> value = LegacyVisualCapture.capture(game, graphics, font, content, x, y);
+      if (value != null) pending.add(value);
+    } catch (RuntimeException error) {
+      failure = error.toString();
+    }
+  }
+
+  static String text(GameRuntime game, Object content) {
+    if (content instanceof String string) return string;
+    StringBuilder string = new StringBuilder();
+    Object sink =
+        Proxy.newProxyInstance(
+            game.loader,
+            new Class<?>[] {game.type("net.minecraft.util.FormattedCharSink")},
+            (proxy, method, arguments) -> {
+              if (method.getName().equals("accept")) {
+                string.appendCodePoint(((Number) arguments[2]).intValue());
+                return true;
+              }
+              return null;
+            });
+    Reflect.call(content, "accept", sink);
+    return string.toString();
   }
 
   @Override

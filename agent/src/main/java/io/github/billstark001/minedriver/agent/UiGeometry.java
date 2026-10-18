@@ -51,7 +51,7 @@ final class UiGeometry {
 
   static Geometry geometry(Object widget) {
     if (group(widget)) {
-      Bounds layout = rectangle(Reflect.field(widget, "bounds"));
+      Bounds layout = rectangle(Reflect.optionalField(widget, "bounds"));
       // Cloth lazily initializes the header rectangle in its native region calculation.
       // Use the last rendered entry bounds and that calculation, never guess a header offset.
       if (layout != null && !layout.empty())
@@ -70,8 +70,8 @@ final class UiGeometry {
       return new Geometry(hit, hit, "cloth-category-header");
     }
     if (cloth(widget)) {
-      Bounds layout = rectangle(Reflect.field(widget, "bounds"));
-      return new Geometry(layout, layout, "cloth-entry");
+      Bounds layout = rectangle(Reflect.optionalField(widget, "bounds"));
+      return new Geometry(layout, layout, layout == null ? "unknown" : "cloth-entry");
     }
     if (Reflect.hasMethod(widget, "getX", 0)
         && Reflect.hasMethod(widget, "getY", 0)

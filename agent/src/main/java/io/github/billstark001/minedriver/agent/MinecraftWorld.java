@@ -17,11 +17,7 @@ final class MinecraftWorld {
         () -> {
           if (game.level() != null)
             throw new DriverException("WORLD_ALREADY_OPEN", "Disconnect before creating a fixture");
-          Reflect.call(
-              game.type("net.minecraft.client.gui.screens.worldselection.CreateWorldScreen"),
-              "openFresh",
-              game.minecraft,
-              (Runnable) () -> {});
+          game.adapter.openWorld(game);
           return null;
         },
         timeout);
@@ -151,7 +147,7 @@ final class MinecraftWorld {
     Object server = game.client(game::server, timeout);
     game.client(
         () -> {
-          Reflect.call(game.minecraft, "disconnectWithSavingScreen");
+          game.adapter.disconnect(game);
           return null;
         },
         timeout);

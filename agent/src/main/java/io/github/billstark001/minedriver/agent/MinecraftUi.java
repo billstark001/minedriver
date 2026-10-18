@@ -216,15 +216,9 @@ final class MinecraftUi {
 
   Object activate(Map<String, Object> parameters) {
     Live selected = select(Parameters.object(parameters, "selector"));
-    if (!Reflect.hasMethod(selected.widget(), "onPress", 1))
+    if (!game.adapter.canActivate(selected.widget()))
       throw new DriverException("UNSUPPORTED_WIDGET", "Widget has no semantic onPress action");
-    Object event =
-        Reflect.create(
-            game.type("net.minecraft.client.input.KeyEvent"),
-            Reflect.field(game.type("com.mojang.blaze3d.platform.InputConstants"), "KEY_RETURN"),
-            0,
-            0);
-    Reflect.call(selected.widget(), "onPress", event);
+    game.adapter.activate(game, selected.widget());
     return Map.of("channel", "semantic", "widget", selected.node());
   }
 
@@ -287,13 +281,8 @@ final class MinecraftUi {
       x = Parameters.decimal(parameters, "x", 0);
       y = Parameters.decimal(parameters, "y", 0);
     }
-    Object button =
-        Reflect.create(
-            game.type("net.minecraft.client.input.MouseButtonInfo"),
-            inputConstant(game, parameters, "button", "LEFT", "MOUSE_BUTTON_", 8),
-            Parameters.integer(parameters, "modifiers", 0, 0, 65535));
-    Object event =
-        Reflect.create(game.type("net.minecraft.client.input.MouseButtonEvent"), x, y, button);
+    int button = inputConstant(game, parameters, "button", "LEFT", "MOUSE_BUTTON_", 8);
+    int modifiers = Parameters.integer(parameters, "modifiers", 0, 0, 65535);
     Object window = Reflect.call(game.minecraft, "getWindow");
     if (x < 0
         || y < 0
@@ -302,17 +291,16 @@ final class MinecraftUi {
       throw new DriverException("INPUT_OUTSIDE_VIEWPORT", "Click lies outside the GUI viewport");
     Boolean expandedBefore = selected == null ? null : selected.node().expanded();
     game.input.pointer(x, y);
-    int buttonCode = ((Number) Reflect.call(button, "button")).intValue();
-    game.input.button(buttonCode, true);
+    game.input.button(button, true);
     boolean consumed;
     try {
       Reflect.call(screen, "mouseMoved", x, y);
-      consumed = Boolean.TRUE.equals(Reflect.call(screen, "mouseClicked", event, false));
+      consumed = game.adapter.click(game, screen, x, y, button, modifiers);
     } finally {
       try {
-        Reflect.call(screen, "mouseReleased", event);
+        game.adapter.release(game, screen, x, y, button, modifiers);
       } finally {
-        game.input.button(buttonCode, false);
+        game.input.button(button, false);
       }
     }
     if (!consumed)

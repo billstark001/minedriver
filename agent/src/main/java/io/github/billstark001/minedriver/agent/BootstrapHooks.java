@@ -21,6 +21,7 @@ final class BootstrapHooks {
     instrumentation.addTransformer(transformer, true);
     instrumentation.addTransformer(new InputTransformer(), true);
     instrumentation.addTransformer(new VisualTransformer(), true);
+    instrumentation.addTransformer(new LegacyVisualTransformer(), true);
     for (Class<?> type : instrumentation.getAllLoadedClasses()) {
       if (java.util.Set.of(
               "net.minecraft.client.Minecraft",
@@ -30,7 +31,10 @@ final class BootstrapHooks {
               "com.mojang.blaze3d.platform.Window",
               "com.mojang.blaze3d.platform.SDLEventHandler",
               "net.minecraft.client.renderer.state.gui.GuiTextRenderState",
-              "net.minecraft.client.renderer.state.gui.GuiItemRenderState")
+              "net.minecraft.client.renderer.state.gui.GuiItemRenderState",
+              "net.minecraft.client.gui.render.state.GuiTextRenderState",
+              "net.minecraft.client.gui.render.state.GuiItemRenderState",
+              "net.minecraft.client.gui.GuiGraphics")
           .contains(type.getName())) {
         try {
           instrumentation.retransformClasses(type);

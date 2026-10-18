@@ -11,7 +11,9 @@ final class VisualTransformer implements ClassFileTransformer {
   static final Set<String> TARGETS =
       Set.of(
           "net/minecraft/client/renderer/state/gui/GuiTextRenderState",
-          "net/minecraft/client/renderer/state/gui/GuiItemRenderState");
+          "net/minecraft/client/renderer/state/gui/GuiItemRenderState",
+          "net/minecraft/client/gui/render/state/GuiTextRenderState",
+          "net/minecraft/client/gui/render/state/GuiItemRenderState");
 
   @Override
   public byte[] transform(

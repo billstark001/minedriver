@@ -1,6 +1,6 @@
 # Third-party notices
 
-MineDriver's source is MIT licensed under [LICENSE](LICENSE). The standalone agent embeds relocated **ASM 9.8** and **Gson 2.13.2**; Gson is also a protocol/CLI runtime dependency.
+MineDriver's source is MIT licensed under [LICENSE](LICENSE). The standalone agent embeds relocated **ASM 9.8** (core, commons and tree) and **Gson 2.13.2**; Gson is also a protocol/CLI runtime dependency.
 
 | Component | License | Included notice |
 | --- | --- | --- |

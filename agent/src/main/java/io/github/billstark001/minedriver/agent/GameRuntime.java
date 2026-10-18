@@ -24,6 +24,7 @@ final class GameRuntime {
   final RuntimeObserver observer;
   final InputIsolation input;
   final VisualCapture visuals;
+  final MinecraftAdapter adapter;
   private final Map<String, Object> environment;
 
   GameRuntime(
@@ -35,14 +36,18 @@ final class GameRuntime {
     this.observer = observer;
     environment = client(this::environment, Duration.ofMillis(config.operationTimeoutMillis()));
     String version = environment.get("minecraft").toString();
-    if (!List.of("26.2", "26.3").contains(version) && !config.allowUnsupportedRuntime())
+    if (!MinecraftAdapter.VERSIONS.contains(version) && !config.allowUnsupportedRuntime())
       throw new DriverException(
           "UNSUPPORTED_RUNTIME",
-          "Minecraft " + version + " is outside the supported adapter matrix (26.2, 26.3)");
+          "Minecraft "
+              + version
+              + " is outside the supported adapter matrix "
+              + MinecraftAdapter.VERSIONS);
     if (!Boolean.TRUE.equals(environment.get("development")) && !config.allowProduction())
       throw new DriverException(
           "PRODUCTION_DISABLED",
           "Production or unclassified runtime requires allowProduction=true");
+    adapter = MinecraftAdapter.forVersion(version);
     ui = new MinecraftUi(this);
     world = new MinecraftWorld(this);
     media = new MinecraftMedia(this);
@@ -64,15 +69,15 @@ final class GameRuntime {
   }
 
   Object screen() {
-    return Reflect.call(gui(), "screen");
+    return adapter.screen(this);
   }
 
   Object overlay() {
-    return Reflect.call(gui(), "overlay");
+    return adapter.overlay(this);
   }
 
   void screen(Object screen) {
-    Reflect.call(gui(), "setScreen", screen);
+    adapter.screen(this, screen);
   }
 
   Object player() {
@@ -88,19 +93,16 @@ final class GameRuntime {
   }
 
   boolean sdl() {
-    return switch (environment.get("minecraft").toString()) {
-      case "26.2" -> false;
-      case "26.3" -> true;
-      default ->
-          throw new DriverException(
-              "UNSUPPORTED_API",
-              "No native window/input adapter for Minecraft " + environment.get("minecraft"));
-    };
+    // Retain the guard even for explicitly experimental unknown versions.
+    if (!MinecraftAdapter.VERSIONS.contains(environment.get("minecraft").toString()))
+      throw new DriverException(
+          "UNSUPPORTED_API",
+          "No native window/input adapter for Minecraft " + environment.get("minecraft"));
+    return adapter.sdl();
   }
 
   boolean focused() {
-    long handle =
-        ((Number) Reflect.call(Reflect.call(minecraft, "getWindow"), "handle")).longValue();
+    long handle = adapter.handle(Reflect.call(minecraft, "getWindow"));
     if (sdl()) {
       Class<?> video = type("org.lwjgl.sdl.SDLVideo");
       long flags = ((Number) Reflect.call(video, "SDL_GetWindowFlags", handle)).longValue();
@@ -203,8 +205,7 @@ final class GameRuntime {
         position.put(axis.toLowerCase(), Reflect.call(player(), "get" + axis));
       position.put("uuid", Reflect.call(player(), "getUUID").toString());
       state.put("player", position);
-      state.put(
-          "dimension", Reflect.call(Reflect.call(level(), "dimension"), "identifier").toString());
+      state.put("dimension", adapter.dimension(Reflect.call(level(), "dimension")).toString());
     }
     return state;
   }
@@ -212,7 +213,9 @@ final class GameRuntime {
   private Map<String, Object> environment() {
     var result = new LinkedHashMap<String, Object>();
     Object version = Reflect.call(type("net.minecraft.SharedConstants"), "getCurrentVersion");
-    result.put("minecraft", Reflect.call(version, "name"));
+    result.put(
+        "minecraft",
+        Reflect.call(version, Reflect.hasMethod(version, "name", 0) ? "name" : "getName"));
     result.put("java", System.getProperty("java.version"));
     result.put("agent", io.github.billstark001.minedriver.protocol.BuildInfo.VERSION);
     result.put("loader", "vanilla");
@@ -235,7 +238,10 @@ final class GameRuntime {
         Object mods = Reflect.call(type("net.neoforged.fml.ModList"), "get");
         result.put("loader", "neoforge");
         Class<?> environment = type("net.neoforged.fml.loading.FMLEnvironment");
-        Object production = Reflect.call(environment, "isProduction");
+        Object production =
+            Reflect.hasMethod(environment, "isProduction", 0)
+                ? Reflect.call(environment, "isProduction")
+                : Reflect.field(environment, "production");
         result.put("development", Boolean.FALSE.equals(production));
         var loaded = new LinkedHashMap<String, String>();
         for (Object metadata : (Iterable<?>) Reflect.call(mods, "getMods"))

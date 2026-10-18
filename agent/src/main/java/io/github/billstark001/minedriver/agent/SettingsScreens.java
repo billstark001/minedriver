@@ -12,7 +12,7 @@ final class SettingsScreens {
     if (parameters.containsKey("configClass")) {
       Object supplier =
           Reflect.call(
-              game.type("me.shedaniel.autoconfig.AutoConfigClient"),
+              game.type(game.adapter.autoConfigClass()),
               "getConfigScreen",
               game.type(Parameters.string(parameters, "configClass", null)),
               parent);

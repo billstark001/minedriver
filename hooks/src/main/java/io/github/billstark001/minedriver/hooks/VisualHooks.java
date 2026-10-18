@@ -12,6 +12,8 @@ public final class VisualHooks {
 
     void capture(Object state, Object bounds);
 
+    default void legacy(Object graphics, Object font, Object content, int x, int y) {}
+
     void end(long frame);
   }
 
@@ -54,5 +56,10 @@ public final class VisualHooks {
   public static void end(long frame) {
     Listener value = listener;
     if (value != null) value.end(frame);
+  }
+
+  public static void legacy(Object graphics, Object font, Object content, int x, int y) {
+    Listener value = listener;
+    if (value != null) value.legacy(graphics, font, content, x, y);
   }
 }

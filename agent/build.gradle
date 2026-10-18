@@ -4,6 +4,7 @@ dependencies {
     implementation project(':api')
     implementation project(':protocol')
     implementation 'org.ow2.asm:asm:9.8'
+    implementation 'org.ow2.asm:asm-commons:9.8'
     compileOnly project(':hooks')
     testImplementation project(':test-support')
     testImplementation project(':hooks')

@@ -33,7 +33,6 @@ final class InputIsolation implements AutoCloseable {
             List.of(
                 "key",
                 "character",
-                "preedit",
                 "button",
                 "scroll",
                 "move",
@@ -43,6 +42,7 @@ final class InputIsolation implements AutoCloseable {
                 "queue",
                 "grab"));
     if (sdl) required.addAll(List.of("text", "cursor", "release"));
+    if (game.adapter.preedit()) required.add("preedit");
     required.removeAll(InputGate.installed());
     return List.copyOf(required);
   }
@@ -180,11 +180,7 @@ final class InputIsolation implements AutoCloseable {
             || !Modifier.isStatic(field.getModifiers())) continue;
         int key = ((Number) Reflect.field(constants, field.getName())).intValue();
         if (key < 0 || key >= 512) continue;
-        boolean down =
-            Boolean.TRUE.equals(
-                sdl
-                    ? Reflect.call(constants, "isKeyDown", key)
-                    : Reflect.call(constants, "isKeyDown", window, key));
+        boolean down = game.adapter.keyDown(game, window, key);
         InputGate.physicalKey(key, down);
       }
       if (sdl) {
@@ -196,7 +192,7 @@ final class InputIsolation implements AutoCloseable {
         for (int button = 1; button <= 8; button++)
           InputGate.physicalMouse(button, (mask & (1 << (button - 1))) != 0);
       } else {
-        long handle = ((Number) Reflect.call(window, "handle")).longValue();
+        long handle = game.adapter.handle(window);
         for (int button = 0; button < 8; button++)
           InputGate.physicalMouse(
               button,
@@ -216,17 +212,12 @@ final class InputIsolation implements AutoCloseable {
 
   private void clearNativeState() {
     Reflect.call(game.type("net.minecraft.client.KeyMapping"), "releaseAll");
-    Reflect.set(Reflect.field(game.minecraft, "keyboardHandler"), "lastPreeditEvent", null);
     Object mouse = Reflect.field(game.minecraft, "mouseHandler");
     Reflect.call(mouse, "releaseMouse");
-    Reflect.set(mouse, "activeButton", null);
-    Reflect.set(mouse, "lastClick", null);
+    game.adapter.clearInput(game, mouse);
     Reflect.set(mouse, "mousePressedTime", 0.0);
     for (String name : List.of("smoothTurnX", "smoothTurnY"))
       Reflect.call(Reflect.field(mouse, name), "reset");
-    Object scroll = Reflect.field(mouse, "scrollWheelHandler");
-    for (String name : List.of("accumulatedScrollX", "accumulatedScrollY"))
-      Reflect.set(scroll, name, 0.0);
     for (String name : List.of("isLeftPressed", "isMiddlePressed", "isRightPressed"))
       Reflect.set(mouse, name, false);
     for (String name : List.of("accumulatedDX", "accumulatedDY")) Reflect.set(mouse, name, 0.0);

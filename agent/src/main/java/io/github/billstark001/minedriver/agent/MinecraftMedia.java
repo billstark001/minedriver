@@ -9,7 +9,6 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
-import java.util.function.Consumer;
 import javax.imageio.ImageIO;
 
 final class MinecraftMedia {
@@ -30,16 +29,11 @@ final class MinecraftMedia {
     game.client(
         () -> {
           capturedUi.set(game.ui.snapshot(8192));
-          Object renderer = Reflect.field(game.minecraft, "gameRenderer");
-          Object target = Reflect.call(renderer, "mainRenderTarget");
-          Reflect.call(
-              game.type("net.minecraft.client.Screenshot"),
-              "grab",
+          game.adapter.screenshot(
+              game,
               game.config.output().toFile(),
               file.getFileName().toString(),
-              target,
-              1,
-              (Consumer<Object>) completed::complete);
+              completed::complete);
           return null;
         },
         timeout);
@@ -101,7 +95,7 @@ final class MinecraftMedia {
           Reflect.call(Reflect.field(game.minecraft, "options"), "guiScale"),
           "set",
           Parameters.integer(parameters, "guiScale", 2, 0, 16));
-      Reflect.call(game.minecraft, "resizeGui");
+      game.adapter.resizeGui(game);
     }
     return Map.of(
         "width",
@@ -118,12 +112,8 @@ final class MinecraftMedia {
 
   Object key(Map<String, Object> parameters, Duration timeout) {
     int key = MinecraftUi.inputConstant(game, parameters, "key", "ESCAPE", "KEY_", 65535);
-    Object event =
-        Reflect.create(
-            game.type("net.minecraft.client.input.KeyEvent"),
-            key,
-            Parameters.integer(parameters, "scanCode", 0, 0, 65535),
-            Parameters.integer(parameters, "modifiers", 0, 0, 65535));
+    int scanCode = Parameters.integer(parameters, "scanCode", 0, 0, 65535);
+    int modifiers = Parameters.integer(parameters, "modifiers", 0, 0, 65535);
     String action = Parameters.string(parameters, "action", "TAP");
     if (!java.util.List.of("TAP", "PRESS", "RELEASE").contains(action))
       throw Parameters.invalid("Unknown key action " + action);
@@ -132,7 +122,7 @@ final class MinecraftMedia {
     try {
       game.client(
           () -> {
-            keyEvent(event, action.equals("RELEASE") ? 0 : 1);
+            keyEvent(key, scanCode, modifiers, action.equals("RELEASE") ? 0 : 1);
             return null;
           },
           timeout);
@@ -149,7 +139,7 @@ final class MinecraftMedia {
         try {
           game.client(
               () -> {
-                keyEvent(event, 0);
+                keyEvent(key, scanCode, modifiers, 0);
                 return null;
               },
               Duration.ofSeconds(2));
@@ -169,36 +159,18 @@ final class MinecraftMedia {
     Object keyboard = Reflect.field(game.minecraft, "keyboardHandler");
     String value = Parameters.string(parameters, "value", null);
     if (!game.sdl()) {
-      Class<?> eventType = game.type("net.minecraft.client.input.CharacterEvent");
-      value
-          .codePoints()
-          .forEach(
-              codepoint ->
-                  Reflect.callback(
-                      keyboard,
-                      "charTyped",
-                      new Class<?>[] {long.class, eventType},
-                      Reflect.call(window, "handle"),
-                      Reflect.create(eventType, codepoint)));
+      value.codePoints().forEach(codepoint -> game.adapter.character(game, codepoint));
       return Map.of("channel", "input");
     }
-    Reflect.call(keyboard, "textInput", Reflect.call(window, "handle"), value);
+    Reflect.call(keyboard, "textInput", game.adapter.handle(window), value);
     return Map.of("channel", "input");
   }
 
-  private void keyEvent(Object event, int action) {
+  private void keyEvent(int key, int scanCode, int modifiers, int action) {
     java.util.concurrent.Callable<Object> dispatch =
         () -> {
-          io.github.billstark001.minedriver.hooks.InputGate.key(
-              ((Number) Reflect.call(event, "key")).intValue(), action != 0);
-          Object keyboard = Reflect.field(game.minecraft, "keyboardHandler");
-          Reflect.callback(
-              keyboard,
-              "keyPress",
-              new Class<?>[] {long.class, int.class, event.getClass()},
-              Reflect.call(Reflect.call(game.minecraft, "getWindow"), "handle"),
-              action,
-              event);
+          io.github.billstark001.minedriver.hooks.InputGate.key(key, action != 0);
+          game.adapter.key(game, key, scanCode, modifiers, action);
           return null;
         };
     if (action == 0) InputIsolation.dispatch(dispatch);
