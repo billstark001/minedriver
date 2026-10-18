@@ -1,0 +1,26 @@
+plugins {
+    id 'net.neoforged.moddev' version '2.0.147'
+    id 'io.github.billstark001.minedriver'
+}
+def versions = ['1.21.1': '21.1.262', '1.21.11': '21.11.44', '26.1.2': '26.1.2.87', '26.2': '26.2.0.88', '26.3': '26.3.0.48-beta']
+def minecraftVersion = providers.gradleProperty('mcVersion').getOrElse('26.1.2')
+if (!versions.containsKey(minecraftVersion)) throw new GradleException("No pinned NeoForge for ${minecraftVersion}")
+java { toolchain.languageVersion = JavaLanguageVersion.of(25) }
+repositories { maven { url = 'https://maven.shedaniel.me/' } }
+dependencies {
+    implementation "me.shedaniel.cloth:cloth-config-neoforge:${['1.21.1': '15.0.140', '1.21.11': '21.11.153', '26.1.2': '26.1.154', '26.2': '26.2.155', '26.3': '26.3.159'][minecraftVersion]}"
+}
+neoForge {
+    version = versions[minecraftVersion]
+    runs { client { client() } }
+}
+sourceSets.minedriver.java.srcDir('../src/minedriver/java')
+mineDriver {
+    scenarios.add('example.CompatibilityScenario')
+    scenarios.add('example.CompatibilityClothScenario')
+    timeoutMillis.set(360000L)
+    operationTimeoutMillis.set(60000L)
+    if (providers.gradleProperty('acceptedWarningsFile').isPresent()) {
+        acceptedStartupWarnings.addAll(new groovy.json.JsonSlurper().parse(file(providers.gradleProperty('acceptedWarningsFile').get())))
+    }
+}
