@@ -1,0 +1,9 @@
+version:0
+lang:en_us
+renderDistance:4
+simulationDistance:5
+maxFps:60
+enableVsync:false
+pauseOnLostFocus:false
+guiScale:2
+onboardAccessibility:false

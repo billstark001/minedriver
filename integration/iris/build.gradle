@@ -1,0 +1,57 @@
+plugins {
+    id 'net.fabricmc.fabric-loom' version '1.17.11'
+    id 'io.github.billstark001.minedriver'
+}
+
+repositories { mavenCentral() }
+java { toolchain.languageVersion = JavaLanguageVersion.of(25) }
+
+// These local, exact-version inputs are not distributed with MineDriver.
+def irisJar = providers.gradleProperty('irisJar').map { file(it) }
+def sodiumJar = providers.gradleProperty('sodiumJar').map { file(it) }
+if (!irisJar.isPresent() || !sodiumJar.isPresent()) {
+    throw new GradleException('Supply -PirisJar=<Iris 1.11.4+mc26.2 jar> and -PsodiumJar=<Sodium 0.9.2+mc26.2 jar>; see integration/iris/README.md')
+}
+
+dependencies {
+    minecraft 'com.mojang:minecraft:26.2'
+    implementation 'net.fabricmc:fabric-loader:0.19.5'
+    // Only the Fabric API modules required by Sodium; no GameTest runtime.
+    implementation fabricApi.module('fabric-block-getter-api-v2', '0.161.0+26.2')
+    implementation fabricApi.module('fabric-rendering-fluids-v1', '0.161.0+26.2')
+    implementation fabricApi.module('fabric-resource-loader-v0', '0.161.0+26.2')
+    compileOnly files(irisJar)
+    testImplementation sourceSets.minedriver.output
+    testImplementation files(tasks.named('mineDriverArtifacts').flatMap { it.apiJar })
+    testImplementation platform('org.junit:junit-bom:5.12.2')
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+tasks.named('test') { useJUnitPlatform() }
+
+def prepareMods = tasks.register('prepareIrisMods', Sync) {
+    from(irisJar, sodiumJar)
+    into(layout.buildDirectory.dir('iris-seed/mods'))
+}
+
+mineDriver {
+    timeoutMillis.set(360000L)
+    operationTimeoutMillis.set(60000L)
+    seedFiles.from(layout.buildDirectory.dir('iris-seed/mods'),
+            layout.projectDirectory.dir('fixtures/config'),
+            layout.projectDirectory.dir('fixtures/shaderpacks'),
+            layout.projectDirectory.file('fixtures/options.txt'))
+    extensionClasses.add('example.IrisExtension')
+    scenarios.add('example.ShaderActiveScenario')
+    profiles {
+        create('active') { scenarios.set(['example.ShaderActiveScenario']) }
+        create('compileFailure') { scenarios.set(['example.ShaderCompileFailureScenario']) }
+    }
+}
+
+tasks.withType(io.github.billstark001.minedriver.gradle.MineDriverRun).configureEach {
+    dependsOn(prepareMods)
+    // Validation-only fault injection: the active scenario must fail for the broken pack.
+    systemProperty 'minedriver.iris.activePack', providers.gradleProperty('activePack').getOrElse('minedriver-valid')
+}
