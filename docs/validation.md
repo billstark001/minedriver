@@ -1,6 +1,6 @@
 # Compatibility and validation
 
-Validation records cover **2026-10-06 through 2026-10-18** on Windows, JDK 25.0.2 and Gradle 9.5.0. These are tested combinations, not a claim about all loader releases or operating systems. The original October 6 matrix used `0.1.0-SNAPSHOT`; The initial October 18 follow-up used development changes after `0.2.0`; final `0.3.0` verification is recorded separately below.
+Validation records cover **2026-10-06 through 2026-10-23** on Windows, JDK 25.0.2 and Gradle 9.5.0. These are tested combinations, not a claim about all loader releases or operating systems. The original October 6 matrix used `0.1.0-SNAPSHOT`; The initial October 18 follow-up used development changes after `0.2.0`; final `0.3.0` verification is recorded separately below.
 
 ## Real game checks
 
@@ -204,3 +204,60 @@ During this regression, Fabric 26.3 runs `1792323894824-476de4a7-4a62-4309-8671-
 The actual 1.21.11 Yarn bridge also regenerated successfully with `--offline --rerun-tasks` using its verified cached official mappings.
 
 The final root `format check build` passed all 68 JVM tests with zero failures/errors. No mapping data or connection secrets are included in the commits.
+
+## Iris scenario and extension fixture (October 23, unreleased)
+
+The opt-in [Iris fixture](../integration/iris/README.md) uses Minecraft 26.2,
+Fabric Loader 0.19.5, Loom 1.17.11, Iris 1.11.4+mc26.2, Sodium 0.9.2+mc26.2,
+Sodium's required Fabric API modules from 0.161.0+26.2, JDK 25.0.2 and Gradle
+9.5.0 on Windows. Actual GL queries reported **Intel(R) UHD Graphics**, vendor
+Intel, OpenGL `3.3.0 - Build 32.0.101.7088`. The detected NVIDIA adapter was not
+the active rendering device.
+
+The fixture adds no core dependencies, commands or public APIs. It uses ordinary
+Java scenarios, a fixture-owned Iris `DriverExtension`, `context.await`, existing frame
+barriers/game-frame screenshots and the sequential profile matrix. The valid
+project-owned pack emits two known final-pass color regions; the invalid pack
+references `MINEDRIVER_EXPECTED_COMPILE_FAILURE` in GLSL. Input hashes, runtime
+state and GL identity are retained in each run's `shader-inputs.json`.
+
+`mineDriverMatrix` completed successfully. Both following reports match their
+launch run IDs, have `complete=true` / `status=PASS`, and had successful
+Gradle/client exits:
+
+| Scenario | Run ID | Observed assertions |
+| --- | --- | --- |
+| Active shader | `1792691198189-f002921f-c373-47b6-8e7f-1d0f81151279` | Shaders-off marker absent; requested pack actually active with no errors/fallback; both final-pass marker regions match 100%. |
+| Compile-failure counterexample | `1792691225443-5b2e793d-269b-4957-b836-27757b5bf728` | Valid marker 100%; actual `ShaderCompileException` names the deliberate identifier; shaders remain requested on but active=false, fallback=true and pipeline=VanillaRenderingPipeline; the same active assertion rejects this state; both marker matches fall to 0%; reloading valid restores 100%. |
+
+Both scenarios verified restoration of initial shader configuration/activation and
+HUD visibility in `restored.json`, then saved/disconnected their owned world and
+exited. PNGs and paired UI JSON are under each task's
+`build/reports/minedriver/<task>/<runId>/screenshots/`; per-capture JSON retains
+pipeline state, marker fractions and the existing request/completion frame range.
+The fallback and recovery game-frame PNGs were also visually inspected. No native
+window activation or desktop screenshot was needed.
+
+The first negative attempt, `1792691010178-2fe89e8d-b5fb-44be-b29a-82728fb73e17`,
+correctly failed because Iris's consuming error getter does not retain in-world
+compile errors. The extension now captures actual Iris logger throwables only
+during the reload command and removes the appender on exit; repeated status reads
+preserve the immutable diagnostic. This was an Iris-specific adapter issue,
+requiring no core change.
+
+The additional fault-injection invocation of `mineDriverActiveCheck` with
+`-PactivePack=minedriver-invalid` exited nonzero as required. Run
+`1792691283758-c31e83a1-ff5e-4ef4-b275-300af1201188` has a matching complete
+**FAIL / ASSERTION_FAILED** result containing the deliberate GLSL error marker;
+`restored.json` confirms shader/HUD cleanup also succeeded on this failure path.
+This remains a failed client check, not a PASS inferred from expected log text.
+
+Root `check build` also passed, including formatting checks; unchanged JVM test
+tasks were up-to-date. Core source/API files and the source instance's Iris/Sodium
+JARs were unchanged.
+
+These results establish the pinned fixture's shader activation, compiler-failure
+detection, final output and recovery. They do not establish renderer-mod geometry,
+third-party pack compatibility, temporal convergence, exact GPU pixel timestamps
+or minimized-window rendering. Reproduction and the additional required-active
+fault-injection command are documented with the fixture.

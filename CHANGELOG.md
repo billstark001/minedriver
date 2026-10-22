@@ -2,6 +2,7 @@
 
 ## [Unreleased]
 
+- Add opt-in Iris activation and deliberate GLSL compile-failure scenarios with project-owned shader packs, actual pipeline/error evidence, game-frame pixel assertions and recovery checks. The separate integration fixture uses the existing scenario/extension/profile APIs without adding core rendering APIs or dependencies.
 - Extend the explicit runtime matrix with Minecraft 26.1.2, 1.21.11 and 1.21.1 alongside 26.2/26.3. Add native input, character events, screenshots, screen ownership, world teardown and legacy immediate-render adapters; older Fabric development projects use Mojang mappings.
 - Preserve key polling across chopped stack-map locals and handle remapped covariant methods while retaining ambiguous-overload rejection. Expand NeoForge DevLaunch program argument files before replacing the isolated game directory, and retain native loader environment variables when cloning launches.
 - Add repeatable Fabric/NeoForge compatibility fixtures with native input isolation, text entry, resource reload, background movement, server assertions, inventory clicks and version-matched Cloth controls.

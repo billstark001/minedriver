@@ -110,6 +110,8 @@ MCP stdio server 使用上述程序，参数为 `latest.json` 路径和 `mcp`。
 
 ## 使用边界
 
+[Iris 集成样例](../integration/iris/README.md)使用现有 Scenario、DriverExtension 和 profile matrix，验证光影实际启用、游戏帧像素及故意触发的 GLSL 编译失败/回退。Iris 专用状态和控制留在测试扩展中，没有增加核心渲染 API；需提供指定版本的本地 Iris/Sodium JAR，根项目 `check` 不会自动启动客户端。
+
 明确适配 Minecraft **1.21.1、1.21.11、26.1.2、26.2、26.3**，实测组合见[验证记录](validation.md)。1.21.1/1.21.11 的 Fabric 开发项目使用 `net.fabricmc.fabric-loom-remap`，兼容 Mojang 和 Yarn mappings（实测 Loom 1.17.11）。可以保留 `mappings loom.officialMojangMappings()`，也可使用 `mappings 'net.fabricmc:yarn:1.21.1+build.3:v2'` 或 `mappings 'net.fabricmc:yarn:1.21.11+build.6:v2'`，无需额外配置 MineDriver。
 
 插件自动通过 `mineDriverMappings` 生成名称桥。Java 场景按接入项目的实际 mappings 编写，MineDriver 命令、类型选择器和快照中的 Minecraft 类名统一使用 Mojang 名称。Yarn 首次准备需要下载官方客户端 mappings 并校验 Mojang 提供的 SHA-1；缓存和生成文件位于接入项目的 `build/minedriver/mappings/`，准备后可以离线复用，映射数据不打进发布 JAR。生产环境和 intermediary 命名不在该适配矩阵内。生产或无法识别的环境默认拒绝，`allowProduction=true` 可实验性尝试，未知版本还需 `allowUnsupportedRuntime=true`。

@@ -155,6 +155,8 @@ The JSON plan runs before Java scenarios. Use `extensionClasses`, because Gradle
 
 `mineDriverMatrix` runs `mineDriverSettingsCheck` and `mineDriverFixtureCheck` sequentially with independent sessions. Profiles inherit the global plan; for scenario-only profiles supply `{"steps":[]}` alongside a nonempty scenario list. Cross-version/loader matrices use separate loader subprojects and native runtimes.
 
+The opt-in [Iris integration example](integration/iris/README.md) uses the same APIs for actual shader activation, game-frame pixel checks and a deliberate GLSL compile-failure/fallback counterexample. Iris-specific state and controls remain in its test extension; it adds no core rendering API.
+
 ## Support and development
 
 Current runtime adapters support **Minecraft 1.21.1, 1.21.11, 26.1.2, 26.2 and 26.3**, with the tested combinations in [validation](docs/validation.md). Driver artifacts target Java 17 bytecode; building this project and running the tested game integrations uses JDK 25. Fabric development projects on 1.21.1/1.21.11 support Mojang and Yarn mappings with the `net.fabricmc.fabric-loom-remap` plugin (tested with Loom 1.17.11). Production/intermediary runtimes remain outside this adapter matrix.
