@@ -55,7 +55,7 @@ For an MCP host, use that executable with arguments `["<absolute latest.json pat
 4. Verify the effect using `wait.widget`, `wait.state` or an explicit scenario assertion. Native input being consumed alone does not prove the intended mod effect. Reinspect before the next action.
 5. Capture with `screenshot.capture` using a unique ASCII basename without path separators or `..`. It awaits completed frames and a validated PNG, writes a paired `.ui.json`, and reports request/completion frame numbers. Reusing a name overwrites the artifact.
 
-For language checks use `resources.language` with `en_us`, `zh_cn`, `zh_tw` or `ja_jp`; it awaits resource reload, overlay dismissal and frames. Rediscover widgets after each reload. For visual comparisons pin physical window size, GUI scale, language, resources, camera, time/weather and warm-up. Use explicitly reviewed baselines; comparison masks are relative to the selected region. Retain the diff on failure instead of silently widening tolerance or replacing the baseline.
+For language checks use `resources.language` with `en_us`, `zh_cn`, `zh_tw` or `ja_jp`; it awaits resource reload, overlay dismissal and frames. Rediscover widgets after each reload. For screenshot comparisons and renderer-specific evidence, follow [visual tests](visual-tests.md).
 
 Checks isolate external standard game input by default. Interactive sessions can acquire/renew/release `input.isolation` leases; inspect actual hook coverage. Background execution preserves actual focus reporting and scopes virtual focus to driver callbacks. Use `agent.status` for cached blockers and heartbeat evidence when actions are queued.
 

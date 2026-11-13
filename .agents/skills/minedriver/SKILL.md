@@ -12,6 +12,7 @@ Turn a requested mod behavior into an observed result with a reproducible check 
 
 - For attaching, inspecting, exercising UI/world behavior, screenshots, profiling or failure triage, read [session workflow](references/sessions.md).
 - For adding MineDriver to a mod project or converting a reproduction into plans, Java scenarios, extensions or native framework checks, read [test authoring](references/tests.md).
+- For visual baselines, shader activation or renderer-specific regressions, read [visual tests](references/visual-tests.md).
 - For a task combining both, inspect the behavior first, then encode the smallest meaningful regression check.
 
 Inputs are the target mod project/subproject, requested behavior, and either an existing session pointer or a MineDriver checkout/installation. Resolve missing paths from project configuration and task/report directories before choosing a launcher. Use the target project's wrapper and qualified task paths.

@@ -45,7 +45,7 @@ pluginManagement {
 }
 ```
 
-Alternatively, run `publishToMavenLocal` in this checkout, add `mavenLocal()` to the consuming project's plugin repositories, and apply `id 'io.github.billstark001.minedriver' version '0.3.0'`. The Maven-local plugin marker and forked-client publication flow were verified for 0.2.0; current release checks are listed in the validation record. No remote publication is performed.
+Alternatively, run `publishToMavenLocal` in this checkout, add `mavenLocal()` to the consuming project's plugin repositories, and apply `id 'io.github.billstark001.minedriver' version '0.4.0'`.
 
 In the loader subproject, apply MineDriver alongside your existing Loom/ModDevGradle plugin:
 
@@ -97,7 +97,21 @@ A check requires a nonempty plan or a Java scenario. Success requires a complete
 
 The portable [minedriver skill](.agents/skills/minedriver/SKILL.md) guides agents through client inspection, UI/world reproductions, regression tests and failure triage. It loads session and test-authoring references only when needed, and distinguishes observed behavior from provisional or stale test results.
 
-Codex discovers it from this checkout's `.agents/skills`. For work in another mod repository, copy the **whole** `.agents/skills/minedriver` folder into that repository's `.agents/skills`, or install it using the [installation guide](docs/skills.md). The skill requires a usable MineDriver installation/session; it does not install the Gradle plugin or configure an MCP server automatically.
+For a **project installation**, run either command from the mod repository where your agent works.
+
+```sh
+npx skills add billstark001/minedriver --skill minedriver -a codex
+gh skill install billstark001/minedriver .agents/skills/minedriver/SKILL.md --allow-hidden-dirs --agent codex --scope project
+```
+
+For a **global installation** across projects, run either command from any directory.
+
+```sh
+npx skills add billstark001/minedriver --skill minedriver -a codex -g
+gh skill install billstark001/minedriver .agents/skills/minedriver/SKILL.md --allow-hidden-dirs --agent codex --scope user
+```
+
+Use `claude-code` in place of `codex` for Claude Code. Codex also discovers the skill in this checkout's `.agents/skills`. See the [installation guide](docs/skills.md) for manual installation, the built-in Codex installer and release pinning. Set up the Gradle plugin and any MCP bridge separately.
 
 Example prompt after installation:
 
@@ -159,7 +173,7 @@ The opt-in [Iris integration example](integration/iris/README.md) uses the same 
 
 ## Support and development
 
-Current runtime adapters support **Minecraft 1.21.1, 1.21.11, 26.1.2, 26.2 and 26.3**, with the tested combinations in [validation](docs/validation.md). Driver artifacts target Java 17 bytecode; building this project and running the tested game integrations uses JDK 25. Fabric development projects on 1.21.1/1.21.11 support Mojang and Yarn mappings with the `net.fabricmc.fabric-loom-remap` plugin (tested with Loom 1.17.11). Production/intermediary runtimes remain outside this adapter matrix.
+Current runtime adapters support **Minecraft 1.21.1, 1.21.11, 26.1.2, 26.2 and 26.3**. See the [tested combinations and 26.4 snapshot status](docs/validation.md). Driver artifacts target Java 17 bytecode; building this project and running the tested game integrations uses JDK 25. Fabric development projects on 1.21.1/1.21.11 support Mojang and Yarn mappings with the `net.fabricmc.fabric-loom-remap` plugin (tested with Loom 1.17.11). Production/intermediary runtimes remain outside this adapter matrix.
 
 Development detection is required by default. `allowProduction=true` opts into experimental production/unclassified use; `allowUnsupportedRuntime=true` separately opts into unknown versions. Neither provides compatibility guarantees or a sandbox. Java scenarios execute trusted code in the game process.
 

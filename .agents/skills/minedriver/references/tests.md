@@ -8,6 +8,7 @@
 | Mod-specific behavior requiring typed APIs or compound assertions | Java `Scenario` in the separate `minedriver` source set. |
 | Interactive mod diagnostics or stable widget IDs | `DriverExtension` exposing explicit `custom.*` commands. |
 | Server logic or registry assertions already using GameTest/FML/JUnit | Existing native framework task plus fresh JUnit XML verification. |
+| Shader activation, fallback, or rendering regression | Java scenario and [visual assertions](visual-tests.md); add a mod-specific extension when built-in commands lack the needed state. |
 
 Start with the installed command schemas and actual inspected state. A screenshot-only plan may pass while the intended behavior fails; assert the effect. Use [session workflow](sessions.md) to reproduce and diagnose first.
 
@@ -97,5 +98,7 @@ Configure the native runner to write that path, then invoke `mineDriverFramework
 ## Validate the result
 
 Run the smallest relevant real check, inspect fresh artifacts and record the runtime, task and assertions. Root MineDriver simulated-client tests prove driver contracts only; they do not establish a new Minecraft version's compatibility. Preserve failure evidence and fix the predicate/setup rather than removing assertions or accepting current screenshots as new baselines. Wire into normal verification only when requested by the project. Report remaining unsupported behavior explicitly.
+
+For loader/version compatibility, use the [real-client matrix](https://github.com/billstark001/minedriver/blob/main/docs/validation.md) or its targeted version option when working on MineDriver itself. Verify the reported loader, Minecraft version and mapping namespace for each run. Keep the normal runtime guards on. Snapshot IDs and release IDs are distinct and require their own adapter evidence.
 
 Native input isolation requires complete supported hooks; simulated clients must explicitly set `inputIsolation=false`. The NeoForge runtime regression hides/restores its owned native window to trigger actual focus loss; never create a second SDL window in Minecraft’s process, whose single-window event loop can misroute resize events. Assert dimensions before/during/after focus loss.
