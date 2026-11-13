@@ -2,10 +2,15 @@
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-11-13
+
 - Add opt-in Iris activation and deliberate GLSL compile-failure scenarios with project-owned shader packs, actual pipeline/error evidence, game-frame pixel assertions and recovery checks. The separate integration fixture uses the existing scenario/extension/profile APIs without adding core rendering APIs or dependencies.
-- Extend the explicit runtime matrix with Minecraft 26.1.2, 1.21.11 and 1.21.1 alongside 26.2/26.3. Add native input, character events, screenshots, screen ownership, world teardown and legacy immediate-render adapters; older Fabric development projects use Mojang mappings.
+- Extend the explicit runtime matrix with Minecraft 26.1.2, 1.21.11 and 1.21.1 alongside 26.2/26.3. Add native input, character events, screenshots, screen ownership, world teardown and legacy immediate-render adapters.
+- Support Yarn development mappings on Fabric 1.21.1 and 1.21.11 through a verified Mojang-to-Loom mapping bridge. Java scenarios use the project's native names, while MineDriver selectors and reports use Mojang names.
 - Preserve key polling across chopped stack-map locals and handle remapped covariant methods while retaining ambiguous-overload rejection. Expand NeoForge DevLaunch program argument files before replacing the isolated game directory, and retain native loader environment variables when cloning launches.
 - Add repeatable Fabric/NeoForge compatibility fixtures with native input isolation, text entry, resource reload, background movement, server assertions, inventory clicks and version-matched Cloth controls.
+- Document agent skill installation with `npx skills`, GitHub CLI and Codex, and add guidance for visual, shader and cross-version regression tests.
+- Record the [26.3 release recheck and 26.4 snapshot status](https://github.com/billstark001/minedriver/blob/v0.4.0/docs/validation.md#040-release-verification-2026-11-13).
 
 ## [0.3.0] - 2026-10-18
 
@@ -43,6 +48,7 @@
 
 This is an unpublished development snapshot. No release tag or automatic release workflow is created.
 
-[Unreleased]: https://github.com/billstark001/minedriver/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/billstark001/minedriver/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/billstark001/minedriver/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/billstark001/minedriver/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/billstark001/minedriver/releases/tag/v0.2.0

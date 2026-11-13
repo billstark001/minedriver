@@ -1,6 +1,16 @@
 # Compatibility and validation
 
-Validation records cover **2026-10-06 through 2026-10-23** on Windows, JDK 25.0.2 and Gradle 9.5.0. These are tested combinations, not a claim about all loader releases or operating systems. The original October 6 matrix used `0.1.0-SNAPSHOT`; The initial October 18 follow-up used development changes after `0.2.0`; final `0.3.0` verification is recorded separately below.
+Validation records cover specific combinations on Windows and Gradle 9.5.0. Runs use JDK 25.0.2 unless noted. The original October 6 matrix used `0.1.0-SNAPSHOT`. The initial October 18 follow-up used development changes after `0.2.0`. Release-specific results are recorded below.
+
+## 0.4.0 release verification (2026-11-13)
+
+Root `check build :cli:installDist` passed all 68 JVM tests. All seven distribution files matched `SHA256SUMS.txt`. The standalone agent, embedded agent and CLI protocol metadata carry `0.4.0`. A separate Maven-local consumer resolved the `0.4.0` plugin marker and completed a fresh simulated-client input and screenshot check (`1794532325052-a1992fdb-faa1-47dc-ac24-8ef42d771726`).
+
+Minecraft **26.3** is in the supported runtime matrix. The pinned NeoForge 26.3.0.48-beta fixture completed the full real-client check (`1794531978530-5d17f157-f2a1-4b02-9d6c-8cad41e5c8f4`), including native input isolation, text and item geometry, screenshots, server-side inventory assertions and Cloth controls. See the [extended runtime matrix](#extended-runtime-matrix-october-18) for earlier Fabric and NeoForge runs.
+
+On this Windows host, fresh Fabric 26.3 runs with Fabric Loader 0.19.5 and the default JVM settings crashed during resource reload on both Oracle JDK 25.0.2 and Temurin 25.0.5. Windows recorded native access violations (`0xc0000005`), and the affected attempts produced no `result.json`. Retrying with Fabric Loader 0.20.1, including a separate title-screen smoke test without Cloth, also exited during resource reload. The cause remains unconfirmed.
+
+Minecraft **26.4** was still a snapshot series on the release date. A Fabric Loader 0.20.1 / Loom 1.17.11 launch of `26.4-snapshot-8` with Temurin 25.0.5 reached the OpenGL client and the runtime guard returned a complete `FAIL` / `UNSUPPORTED_RUNTIME` (`1794532235736-271a1a81-1912-4202-9fb4-b96f652db140`). MineDriver 0.4.0 has no 26.4 adapter. [Mojang's Snapshot 8 notes](https://www.minecraft.net/en-us/article/minecraft-26-4-snapshot-8).
 
 ## Real game checks
 
@@ -133,7 +143,7 @@ Two external test conditions remain explicit:
 
 Production/unclassified runtimes and unknown versions require explicit opt-ins and remain experimental. Dedicated-server connection, other operating systems, direct device access by mods, GPU timing, versions outside the explicit matrix, production/intermediary names, hot reload and broad live-launch configuration-cache compatibility are not claimed. Standard Windows game-input isolation and background execution have the October 18 coverage above; it does not establish all OS focus transitions or minimized rendering behavior. Native UI flags and standard text/item render states do not capture arbitrary custom-rendered controls or occlusion. Stable visual baselines require controlled resources/language/layout/world conditions and review.
 
-## Extended runtime matrix (October 18, unreleased)
+## Extended runtime matrix (October 18)
 
 The compatibility fixtures in `integration/compatibility` exercise working-tree changes after 0.3.0 using JDK 25.0.2, Gradle 9.5.0, Loom 1.17.11 / Fabric Loader 0.19.5 or ModDevGradle 2.0.147. Their shared scenarios compile against each actual runtime. No production or unsupported-version opt-in is enabled.
 
@@ -166,7 +176,7 @@ All ten runs completed with matching fresh PASS results and successful process e
 
 <!-- /compatibility-matrix-runs -->
 
-## Yarn development mappings (October 18, unreleased)
+## Yarn development mappings (October 18)
 
 After the runtime-extension commits, Fabric 1.21.1 and 1.21.11 additionally passed with their native Yarn mappings. The fixtures compile the separate `src/yarn/java` scenarios directly against `MinecraftClient`, `TextFieldWidget`, `InputUtil` and the version's native keyboard callbacks. They run the same input, UI/render, resource, background movement, world/inventory and Cloth assertions as the original matrix, plus checks for an active `named` bridge, actual Yarn class names and canonical Mojang type selectors. Development/version/input guards remain enabled. The generated mapping data stays under the consuming fixture's build directory.
 
@@ -205,59 +215,25 @@ The actual 1.21.11 Yarn bridge also regenerated successfully with `--offline --r
 
 The final root `format check build` passed all 68 JVM tests with zero failures/errors. No mapping data or connection secrets are included in the commits.
 
-## Iris scenario and extension fixture (October 23, unreleased)
+## Iris scenario and extension fixture (October 23)
 
-The opt-in [Iris fixture](../integration/iris/README.md) uses Minecraft 26.2,
-Fabric Loader 0.19.5, Loom 1.17.11, Iris 1.11.4+mc26.2, Sodium 0.9.2+mc26.2,
-Sodium's required Fabric API modules from 0.161.0+26.2, JDK 25.0.2 and Gradle
-9.5.0 on Windows. Actual GL queries reported **Intel(R) UHD Graphics**, vendor
-Intel, OpenGL `3.3.0 - Build 32.0.101.7088`. The detected NVIDIA adapter was not
-the active rendering device.
+The opt-in [Iris fixture](../integration/iris/README.md) uses Minecraft 26.2, Fabric Loader 0.19.5, Loom 1.17.11, Iris 1.11.4+mc26.2, Sodium 0.9.2+mc26.2, Sodium's required Fabric API modules from 0.161.0+26.2, JDK 25.0.2 and Gradle 9.5.0 on Windows. Actual GL queries reported **Intel(R) UHD Graphics**, vendor Intel, OpenGL `3.3.0 - Build 32.0.101.7088`. The detected NVIDIA adapter was not the active rendering device.
 
-The fixture adds no core dependencies, commands or public APIs. It uses ordinary
-Java scenarios, a fixture-owned Iris `DriverExtension`, `context.await`, existing frame
-barriers/game-frame screenshots and the sequential profile matrix. The valid
-project-owned pack emits two known final-pass color regions; the invalid pack
-references `MINEDRIVER_EXPECTED_COMPILE_FAILURE` in GLSL. Input hashes, runtime
-state and GL identity are retained in each run's `shader-inputs.json`.
+The fixture adds no core dependencies, commands or public APIs. It uses ordinary Java scenarios, a fixture-owned Iris `DriverExtension`, `context.await`, existing frame barriers/game-frame screenshots and the sequential profile matrix. The valid project-owned pack emits two known final-pass color regions; the invalid pack references `MINEDRIVER_EXPECTED_COMPILE_FAILURE` in GLSL. Input hashes, runtime state and GL identity are retained in each run's `shader-inputs.json`.
 
-`mineDriverMatrix` completed successfully. Both following reports match their
-launch run IDs, have `complete=true` / `status=PASS`, and had successful
-Gradle/client exits:
+`mineDriverMatrix` completed successfully. Both following reports match their launch run IDs, have `complete=true` / `status=PASS`, and had successful Gradle/client exits:
 
 | Scenario | Run ID | Observed assertions |
 | --- | --- | --- |
 | Active shader | `1792691198189-f002921f-c373-47b6-8e7f-1d0f81151279` | Shaders-off marker absent; requested pack actually active with no errors/fallback; both final-pass marker regions match 100%. |
 | Compile-failure counterexample | `1792691225443-5b2e793d-269b-4957-b836-27757b5bf728` | Valid marker 100%; actual `ShaderCompileException` names the deliberate identifier; shaders remain requested on but active=false, fallback=true and pipeline=VanillaRenderingPipeline; the same active assertion rejects this state; both marker matches fall to 0%; reloading valid restores 100%. |
 
-Both scenarios verified restoration of initial shader configuration/activation and
-HUD visibility in `restored.json`, then saved/disconnected their owned world and
-exited. PNGs and paired UI JSON are under each task's
-`build/reports/minedriver/<task>/<runId>/screenshots/`; per-capture JSON retains
-pipeline state, marker fractions and the existing request/completion frame range.
-The fallback and recovery game-frame PNGs were also visually inspected. No native
-window activation or desktop screenshot was needed.
+Both scenarios verified restoration of initial shader configuration/activation and HUD visibility in `restored.json`, then saved/disconnected their owned world and exited. PNGs and paired UI JSON are under each task's `build/reports/minedriver/<task>/<runId>/screenshots/`; per-capture JSON retains pipeline state, marker fractions and the existing request/completion frame range. The fallback and recovery game-frame PNGs were also visually inspected. No native window activation or desktop screenshot was needed.
 
-The first negative attempt, `1792691010178-2fe89e8d-b5fb-44be-b29a-82728fb73e17`,
-correctly failed because Iris's consuming error getter does not retain in-world
-compile errors. The extension now captures actual Iris logger throwables only
-during the reload command and removes the appender on exit; repeated status reads
-preserve the immutable diagnostic. This was an Iris-specific adapter issue,
-requiring no core change.
+The first negative attempt, `1792691010178-2fe89e8d-b5fb-44be-b29a-82728fb73e17`, correctly failed because Iris's consuming error getter does not retain in-world compile errors. The extension now captures actual Iris logger throwables only during the reload command and removes the appender on exit; repeated status reads preserve the immutable diagnostic. This was an Iris-specific adapter issue, requiring no core change.
 
-The additional fault-injection invocation of `mineDriverActiveCheck` with
-`-PactivePack=minedriver-invalid` exited nonzero as required. Run
-`1792691283758-c31e83a1-ff5e-4ef4-b275-300af1201188` has a matching complete
-**FAIL / ASSERTION_FAILED** result containing the deliberate GLSL error marker;
-`restored.json` confirms shader/HUD cleanup also succeeded on this failure path.
-This remains a failed client check, not a PASS inferred from expected log text.
+The additional fault-injection invocation of `mineDriverActiveCheck` with `-PactivePack=minedriver-invalid` exited nonzero as required. Run `1792691283758-c31e83a1-ff5e-4ef4-b275-300af1201188` has a matching complete **FAIL / ASSERTION_FAILED** result containing the deliberate GLSL error marker; `restored.json` confirms shader/HUD cleanup also succeeded on this failure path. This remains a failed client check, not a PASS inferred from expected log text.
 
-Root `check build` also passed, including formatting checks; unchanged JVM test
-tasks were up-to-date. Core source/API files and the source instance's Iris/Sodium
-JARs were unchanged.
+Root `check build` also passed, including formatting checks; unchanged JVM test tasks were up-to-date. Core source/API files and the source instance's Iris/Sodium JARs were unchanged.
 
-These results establish the pinned fixture's shader activation, compiler-failure
-detection, final output and recovery. They do not establish renderer-mod geometry,
-third-party pack compatibility, temporal convergence, exact GPU pixel timestamps
-or minimized-window rendering. Reproduction and the additional required-active
-fault-injection command are documented with the fixture.
+These results establish the pinned fixture's shader activation, compiler-failure detection, final output and recovery. They do not establish renderer-mod geometry, third-party pack compatibility, temporal convergence, exact GPU pixel timestamps or minimized-window rendering. Reproduction and the additional required-active fault-injection command are documented with the fixture.
